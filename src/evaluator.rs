@@ -935,6 +935,10 @@ fn walk_node_for_vars(node: &CompiledNode, keys: &mut HashSet<String>) -> bool {
             }
             true
         }
+
+        // Forward-compatibility: new variants added in future datalogic-rs versions
+        // are treated as potentially needing full context (safe default).
+        _ => false,
     }
 }
 
