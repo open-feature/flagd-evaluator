@@ -1372,4 +1372,90 @@ flags:
             serde_json::json!(10)
         );
     }
+// ============================================================================
+// Tests for flag-set metadata in UpdateStateResponse
+// ============================================================================
+
+#[test]
+fn test_update_state_flag_set_metadata_present() {
+    use serde_json::json;
+
+    let mut evaluator = FlagEvaluator::new(ValidationMode::Strict);
+
+    let config = r#"{
+        "metadata": {
+            "flagSet": "my-flag-set",
+            "version": "1.0.0",
+            "environment": "production"
+        },
+        "flags": {
+            "someFlag": {
+                "state": "ENABLED",
+                "defaultVariant": "on",
+                "variants": {"on": true, "off": false}
+            }
+        }
+    }"#;
+
+    let response = evaluator.update_state(config).unwrap();
+    assert!(response.success);
+
+    let metadata = response.flag_set_metadata.expect("flag_set_metadata should be present");
+    assert_eq!(metadata.get("flagSet"), Some(&json!("my-flag-set")));
+    assert_eq!(metadata.get("version"), Some(&json!("1.0.0")));
+    assert_eq!(metadata.get("environment"), Some(&json!("production")));
+}
+
+#[test]
+fn test_update_state_flag_set_metadata_absent() {
+    let mut evaluator = FlagEvaluator::new(ValidationMode::Strict);
+
+    let config = r#"{
+        "flags": {
+            "someFlag": {
+                "state": "ENABLED",
+                "defaultVariant": "on",
+                "variants": {"on": true}
+            }
+        }
+    }"#;
+
+    let response = evaluator.update_state(config).unwrap();
+    assert!(response.success);
+    assert!(
+        response.flag_set_metadata.is_none(),
+        "flag_set_metadata should be None when no top-level metadata"
+    );
+}
+
+#[test]
+fn test_update_state_flag_set_metadata_replaces_on_second_call() {
+    use serde_json::json;
+
+    let mut evaluator = FlagEvaluator::new(ValidationMode::Strict);
+
+    let config1 = r#"{
+        "metadata": { "env": "staging" },
+        "flags": {
+            "f": { "state": "ENABLED", "defaultVariant": "on", "variants": {"on": true} }
+        }
+    }"#;
+
+    let config2 = r#"{
+        "metadata": { "env": "production", "owner": "team-a" },
+        "flags": {
+            "f": { "state": "ENABLED", "defaultVariant": "on", "variants": {"on": true} }
+        }
+    }"#;
+
+    let r1 = evaluator.update_state(config1).unwrap();
+    assert_eq!(
+        r1.flag_set_metadata.as_ref().unwrap().get("env"),
+        Some(&json!("staging"))
+    );
+
+    let r2 = evaluator.update_state(config2).unwrap();
+    let m2 = r2.flag_set_metadata.unwrap();
+    assert_eq!(m2.get("env"), Some(&json!("production")));
+    assert_eq!(m2.get("owner"), Some(&json!("team-a")));
 }

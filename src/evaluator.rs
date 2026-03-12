@@ -117,6 +117,7 @@ impl FlagEvaluator {
                         pre_evaluated: None,
                         required_context_keys: None,
                         flag_indices: None,
+                        flag_set_metadata: None,
                     });
                 }
             }
@@ -141,6 +142,7 @@ impl FlagEvaluator {
                     pre_evaluated: None,
                     required_context_keys: None,
                     flag_indices: None,
+                    flag_set_metadata: None,
                 });
             }
         };
@@ -154,6 +156,13 @@ impl FlagEvaluator {
         // Build required_context_keys and flag_indices for targeting flags
         let (required_context_keys, flag_indices, index_to_key) =
             Self::build_optimization_maps(&new_parsing_result);
+
+        // Capture flag-set metadata before moving new_parsing_result into self.state
+        let flag_set_metadata = if new_parsing_result.flag_set_metadata.is_empty() {
+            None
+        } else {
+            Some(new_parsing_result.flag_set_metadata.clone())
+        };
 
         // Store the index-to-key mapping for evaluate_by_index lookups
         self.flag_index_map = index_to_key;
@@ -180,6 +189,7 @@ impl FlagEvaluator {
             } else {
                 Some(flag_indices)
             },
+            flag_set_metadata,
         })
     }
 
