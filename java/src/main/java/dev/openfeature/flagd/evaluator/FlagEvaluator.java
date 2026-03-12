@@ -149,19 +149,22 @@ public class FlagEvaluator implements AutoCloseable, Evaluator {
         final Map<String, EvaluationResult<Object>> preEvaluated;
         final Map<String, Set<String>> requiredContextKeys;
         final Map<String, Integer> flagIndices;
+        final Map<String, Object> flagSetMetadata;
 
         CacheSnapshot(long generation,
                       Map<String, EvaluationResult<Object>> preEvaluated,
                       Map<String, Set<String>> requiredContextKeys,
-                      Map<String, Integer> flagIndices) {
+                      Map<String, Integer> flagIndices,
+                      Map<String, Object> flagSetMetadata) {
             this.generation = generation;
             this.preEvaluated = preEvaluated;
             this.requiredContextKeys = requiredContextKeys;
             this.flagIndices = flagIndices;
+            this.flagSetMetadata = flagSetMetadata;
         }
 
         static final CacheSnapshot EMPTY = new CacheSnapshot(
-            0, Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap());
+            0, Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap(), Collections.emptyMap());
     }
 
     // Pool of WASM instances
@@ -347,7 +350,10 @@ public class FlagEvaluator implements AutoCloseable, Evaluator {
         Map<String, Integer> indices = result.getFlagIndices();
         if (indices == null) indices = Collections.emptyMap();
 
-        return new CacheSnapshot(generation, preEval, keySets, indices);
+        Map<String, Object> flagSetMeta = result.getFlagSetMetadata();
+        if (flagSetMeta == null) flagSetMeta = Collections.emptyMap();
+
+        return new CacheSnapshot(generation, preEval, keySets, indices, flagSetMeta);
     }
 
     /**
@@ -588,8 +594,7 @@ public class FlagEvaluator implements AutoCloseable, Evaluator {
 
     @Override
     public Map<String, Object> getFlagSetMetadata() {
-        // TODO: expose flag-set level metadata from UpdateStateResult when available
-        return Collections.emptyMap();
+        return cache.flagSetMetadata;
     }
 
     @Override

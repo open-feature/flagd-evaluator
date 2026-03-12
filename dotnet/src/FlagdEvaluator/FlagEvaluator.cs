@@ -111,6 +111,12 @@ public sealed class FlagEvaluator : IDisposable
     }
 
     /// <summary>
+    /// Returns the flag-set level metadata from the most recent UpdateState call.
+    /// Returns null if no metadata was present or UpdateState has not been called.
+    /// </summary>
+    public IReadOnlyDictionary<string, object>? GetFlagSetMetadata() => _cache.FlagSetMetadata;
+
+    /// <summary>
     /// Evaluates a flag and returns the full result.
     /// </summary>
     public EvaluationResult EvaluateFlag(string flagKey, Dictionary<string, object?>? context = null)

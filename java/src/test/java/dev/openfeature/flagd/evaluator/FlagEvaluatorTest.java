@@ -609,4 +609,71 @@ class FlagEvaluatorTest {
             customPool.close();
         }
     }
+
+    @Test
+    void testUpdateStateReturnsFlagSetMetadata() throws EvaluatorException {
+        String config = "{\n" +
+                "  \"metadata\": {\n" +
+                "    \"flagSet\": \"my-flag-set\",\n" +
+                "    \"version\": \"1.0.0\",\n" +
+                "    \"environment\": \"production\"\n" +
+                "  },\n" +
+                "  \"flags\": {\n" +
+                "    \"someFlag\": {\n" +
+                "      \"state\": \"ENABLED\",\n" +
+                "      \"defaultVariant\": \"on\",\n" +
+                "      \"variants\": { \"on\": true, \"off\": false }\n" +
+                "    }\n" +
+                "  }\n" +
+                "}";
+
+        UpdateStateResult result = evaluator.updateState(config);
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getFlagSetMetadata()).isNotNull();
+        assertThat(result.getFlagSetMetadata()).containsKey("flagSet");
+        assertThat(result.getFlagSetMetadata().get("flagSet")).isEqualTo("my-flag-set");
+        assertThat(result.getFlagSetMetadata().get("version")).isEqualTo("1.0.0");
+        assertThat(result.getFlagSetMetadata().get("environment")).isEqualTo("production");
+    }
+
+    @Test
+    void testGetFlagSetMetadataReturnsCachedValue() throws EvaluatorException {
+        String config = "{\n" +
+                "  \"metadata\": {\n" +
+                "    \"owner\": \"team-a\",\n" +
+                "    \"priority\": 42\n" +
+                "  },\n" +
+                "  \"flags\": {\n" +
+                "    \"f\": {\n" +
+                "      \"state\": \"ENABLED\",\n" +
+                "      \"defaultVariant\": \"on\",\n" +
+                "      \"variants\": { \"on\": true }\n" +
+                "    }\n" +
+                "  }\n" +
+                "}";
+
+        evaluator.updateState(config);
+        Map<String, Object> meta = evaluator.getFlagSetMetadata();
+        assertThat(meta).isNotNull();
+        assertThat(meta).containsKey("owner");
+        assertThat(meta.get("owner")).isEqualTo("team-a");
+    }
+
+    @Test
+    void testGetFlagSetMetadataEmptyWhenNotPresent() throws EvaluatorException {
+        String config = "{\n" +
+                "  \"flags\": {\n" +
+                "    \"f\": {\n" +
+                "      \"state\": \"ENABLED\",\n" +
+                "      \"defaultVariant\": \"on\",\n" +
+                "      \"variants\": { \"on\": true }\n" +
+                "    }\n" +
+                "  }\n" +
+                "}";
+
+        UpdateStateResult result = evaluator.updateState(config);
+        assertThat(result.isSuccess()).isTrue();
+        assertThat(result.getFlagSetMetadata()).isNull();
+        assertThat(evaluator.getFlagSetMetadata()).isEmpty();
+    }
 }

@@ -29,6 +29,7 @@ export class FlagEvaluator {
       preEvaluated: new Map(),
       requiredContextKeys: new Map(),
       flagIndices: new Map(),
+      flagSetMetadata: {},
     };
     // Pre-allocate reusable buffers
     this.flagKeyBufPtr = wasm.alloc(MAX_FLAG_KEY_SIZE);
@@ -78,6 +79,11 @@ export class FlagEvaluator {
     this.cache = buildCacheSnapshot(result);
 
     return result;
+  }
+
+  /** Returns the flag-set level metadata from the most recent updateState() call. */
+  getFlagSetMetadata(): Record<string, unknown> {
+    return this.cache.flagSetMetadata;
   }
 
   /** Evaluate a flag against the provided context. */
@@ -201,5 +207,5 @@ function buildCacheSnapshot(result: UpdateStateResult): CacheSnapshot {
     }
   }
 
-  return { preEvaluated, requiredContextKeys, flagIndices };
+  return { preEvaluated, requiredContextKeys, flagIndices, flagSetMetadata: result.flagSetMetadata ?? {} };
 }

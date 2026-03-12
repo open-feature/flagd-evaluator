@@ -225,3 +225,81 @@ describe("FlagEvaluator", () => {
     permissive.dispose();
   });
 });
+
+describe("FlagEvaluator - flag-set metadata", () => {
+  let evaluator: FlagEvaluator;
+
+  beforeAll(async () => {
+    evaluator = await FlagEvaluator.create(WASM_PATH);
+  });
+
+  afterAll(() => {
+    evaluator.dispose();
+  });
+
+  it("returns flagSetMetadata from updateState when present", () => {
+    const config = JSON.stringify({
+      metadata: {
+        flagSet: "my-flag-set",
+        version: "1.0.0",
+        environment: "production",
+      },
+      flags: {
+        someFlag: {
+          state: "ENABLED",
+          variants: { on: true, off: false },
+          defaultVariant: "on",
+        },
+      },
+    });
+
+    const result = evaluator.updateState(config);
+    expect(result.success).toBe(true);
+    expect(result.flagSetMetadata).toBeDefined();
+    expect(result.flagSetMetadata!["flagSet"]).toBe("my-flag-set");
+    expect(result.flagSetMetadata!["version"]).toBe("1.0.0");
+    expect(result.flagSetMetadata!["environment"]).toBe("production");
+  });
+
+  it("returns undefined flagSetMetadata when not present", () => {
+    const config = JSON.stringify({
+      flags: {
+        someFlag: {
+          state: "ENABLED",
+          variants: { on: true },
+          defaultVariant: "on",
+        },
+      },
+    });
+
+    const result = evaluator.updateState(config);
+    expect(result.success).toBe(true);
+    expect(result.flagSetMetadata).toBeUndefined();
+  });
+
+  it("exposes flagSetMetadata via getFlagSetMetadata()", () => {
+    const config = JSON.stringify({
+      metadata: { owner: "team-a", priority: 42 },
+      flags: {
+        f: { state: "ENABLED", variants: { on: true }, defaultVariant: "on" },
+      },
+    });
+
+    evaluator.updateState(config);
+    const meta = evaluator.getFlagSetMetadata();
+    expect(meta["owner"]).toBe("team-a");
+    expect(meta["priority"]).toBe(42);
+  });
+
+  it("getFlagSetMetadata() returns empty object when no metadata", () => {
+    const config = JSON.stringify({
+      flags: {
+        f: { state: "ENABLED", variants: { on: true }, defaultVariant: "on" },
+      },
+    });
+
+    evaluator.updateState(config);
+    const meta = evaluator.getFlagSetMetadata();
+    expect(meta).toEqual({});
+  });
+});

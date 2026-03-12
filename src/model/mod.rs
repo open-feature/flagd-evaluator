@@ -50,4 +50,10 @@ pub struct UpdateStateResponse {
     /// passing flag key strings, avoiding string serialization overhead.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub flag_indices: Option<HashMap<String, u32>>,
+
+    /// Flag-set level metadata from the top-level `"metadata"` key in the flag configuration.
+    ///
+    /// Providers should cache this and return it from `getFlagSetMetadata()` / equivalent.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub flag_set_metadata: Option<HashMap<String, serde_json::Value>>,
 }

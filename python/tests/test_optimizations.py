@@ -499,3 +499,87 @@ def test_targeting_key_defaults_to_empty_in_filtered_context():
     # With targetingKey -> "present"
     result_with_tk = evaluator.evaluate("tkFlag", {"targetingKey": "user-1"})
     assert result_with_tk["value"] == "has-tk"
+
+
+# ---------------------------------------------------------------------------
+# Flag-set metadata tests
+# ---------------------------------------------------------------------------
+
+def test_update_state_returns_flag_set_metadata():
+    """update_state returns flag_set_metadata when the config has a top-level 'metadata' key."""
+    from flagd_evaluator import FlagEvaluator
+    evaluator = FlagEvaluator()
+    config = {
+        "metadata": {
+            "flagSet": "my-flag-set",
+            "version": "1.0.0",
+            "environment": "production",
+        },
+        "flags": {
+            "someFlag": {
+                "state": "ENABLED",
+                "defaultVariant": "on",
+                "variants": {"on": True, "off": False},
+            }
+        },
+    }
+    result = evaluator.update_state(json.dumps(config))
+    meta = result["flagSetMetadata"]
+    assert meta["flagSet"] == "my-flag-set"
+    assert meta["version"] == "1.0.0"
+    assert meta["environment"] == "production"
+
+
+def test_update_state_no_flag_set_metadata_when_absent():
+    """update_state does not include flag_set_metadata when the config has no top-level 'metadata'."""
+    from flagd_evaluator import FlagEvaluator
+    evaluator = FlagEvaluator()
+    config = {
+        "flags": {
+            "someFlag": {
+                "state": "ENABLED",
+                "defaultVariant": "on",
+                "variants": {"on": True},
+            }
+        }
+    }
+    result = evaluator.update_state(json.dumps(config))
+    assert result["success"] is True
+    assert result.get("flagSetMetadata") is None
+
+
+def test_get_flag_set_metadata_returns_cached_value():
+    """get_flag_set_metadata() returns metadata cached from the last update_state()."""
+    from flagd_evaluator import FlagEvaluator
+    evaluator = FlagEvaluator()
+    config = {
+        "metadata": {"owner": "team-a", "priority": 42},
+        "flags": {
+            "f": {
+                "state": "ENABLED",
+                "defaultVariant": "on",
+                "variants": {"on": True},
+            }
+        },
+    }
+    evaluator.update_state(json.dumps(config))
+    meta = evaluator.get_flag_set_metadata()
+    assert meta["owner"] == "team-a"
+    assert meta["priority"] == 42
+
+
+def test_get_flag_set_metadata_empty_when_not_present():
+    """get_flag_set_metadata() returns empty dict when no metadata present."""
+    from flagd_evaluator import FlagEvaluator
+    evaluator = FlagEvaluator()
+    config = {
+        "flags": {
+            "f": {
+                "state": "ENABLED",
+                "defaultVariant": "on",
+                "variants": {"on": True},
+            }
+        }
+    }
+    evaluator.update_state(json.dumps(config))
+    assert evaluator.get_flag_set_metadata() == {}

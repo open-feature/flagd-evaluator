@@ -775,3 +775,76 @@ func assertContains(t *testing.T, slice interface{}, item interface{}) {
 		t.Errorf("assertContains: unsupported slice type %T", slice)
 	}
 }
+
+func TestFlagSetMetadata(t *testing.T) {
+e := newTestEvaluator(t)
+
+config := `{
+"metadata": {
+"flagSet": "my-flag-set",
+"version": "1.0.0",
+"environment": "production"
+},
+"flags": {
+"someFlag": {
+"state": "ENABLED",
+"defaultVariant": "on",
+"variants": { "on": true, "off": false }
+}
+}
+}`
+
+result, err := e.UpdateState(config)
+if err != nil {
+t.Fatalf("UpdateState failed: %v", err)
+}
+if !result.Success {
+t.Fatalf("UpdateState not successful")
+}
+if result.FlagSetMetadata == nil {
+t.Fatal("expected FlagSetMetadata to be non-nil")
+}
+if result.FlagSetMetadata["flagSet"] != "my-flag-set" {
+t.Errorf("expected flagSet = 'my-flag-set', got %v", result.FlagSetMetadata["flagSet"])
+}
+if result.FlagSetMetadata["version"] != "1.0.0" {
+t.Errorf("expected version = '1.0.0', got %v", result.FlagSetMetadata["version"])
+}
+
+// GetFlagSetMetadata should return the cached metadata
+meta := e.GetFlagSetMetadata()
+if meta == nil {
+t.Fatal("expected GetFlagSetMetadata to return non-nil")
+}
+if meta["flagSet"] != "my-flag-set" {
+t.Errorf("expected cached flagSet = 'my-flag-set', got %v", meta["flagSet"])
+}
+}
+
+func TestFlagSetMetadataAbsent(t *testing.T) {
+e := newTestEvaluator(t)
+
+config := `{
+"flags": {
+"someFlag": {
+"state": "ENABLED",
+"defaultVariant": "on",
+"variants": { "on": true }
+}
+}
+}`
+
+result, err := e.UpdateState(config)
+if err != nil {
+t.Fatalf("UpdateState failed: %v", err)
+}
+if !result.Success {
+t.Fatalf("UpdateState not successful")
+}
+if result.FlagSetMetadata != nil {
+t.Errorf("expected FlagSetMetadata to be nil, got %v", result.FlagSetMetadata)
+}
+if e.GetFlagSetMetadata() != nil {
+t.Errorf("expected GetFlagSetMetadata() to return nil, got %v", e.GetFlagSetMetadata())
+}
+}
