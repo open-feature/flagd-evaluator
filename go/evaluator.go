@@ -29,10 +29,11 @@ type wasmInstance struct {
 
 // cacheSnapshot holds all host-side caches. Replaced atomically on UpdateState.
 type cacheSnapshot struct {
-	generation     uint64
-	preEvaluated   map[string]*EvaluationResult
-	requiredCtxKey map[string]map[string]bool
-	flagIndex      map[string]uint32
+	generation      uint64
+	preEvaluated    map[string]*EvaluationResult
+	requiredCtxKey  map[string]map[string]bool
+	flagIndex       map[string]uint32
+	flagSetMetadata map[string]interface{}
 }
 
 // FlagEvaluator evaluates feature flags using a pool of flagd-evaluator WASM
@@ -201,6 +202,17 @@ func (e *FlagEvaluator) Close() error {
 	return e.rt.Close(e.ctx)
 }
 
+// GetFlagSetMetadata returns the flag-set level metadata from the most recent
+// UpdateState call. Returns nil if no metadata was present or UpdateState has
+// not been called yet.
+func (e *FlagEvaluator) GetFlagSetMetadata() map[string]interface{} {
+	snap := e.cache.Load()
+	if snap == nil {
+		return nil
+	}
+	return snap.flagSetMetadata
+}
+
 // UpdateState updates the flag configuration across all WASM instances.
 // Returns information about changed flags and populates internal caches.
 func (e *FlagEvaluator) UpdateState(configJSON string) (*UpdateStateResult, error) {
@@ -310,6 +322,10 @@ func buildCacheSnapshot(result *UpdateStateResult) *cacheSnapshot {
 
 	if result.FlagIndices != nil {
 		snap.flagIndex = result.FlagIndices
+	}
+
+	if result.FlagSetMetadata != nil {
+		snap.flagSetMetadata = result.FlagSetMetadata
 	}
 
 	return snap

@@ -25,6 +25,7 @@ type UpdateStateResult struct {
 	PreEvaluated        map[string]*EvaluationResult `json:"preEvaluated,omitempty"`
 	RequiredContextKeys map[string][]string          `json:"requiredContextKeys,omitempty"`
 	FlagIndices         map[string]uint32            `json:"flagIndices,omitempty"`
+	FlagSetMetadata     map[string]interface{}       `json:"flagSetMetadata,omitempty"`
 }
 
 // Option configures a FlagEvaluator.
