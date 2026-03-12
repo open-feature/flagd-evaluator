@@ -41,6 +41,21 @@ use std::sync::Once;
 
 static PANIC_HOOK_INIT: Once = Once::new();
 
+// Provide a custom getrandom backend for WASM so ahash's runtime-rng feature
+// (which XORs a runtime-random value into the compile-time seed) doesn't panic.
+// Filling with zeros is safe: ahash already has a good compile-time seed from
+// const-random, and this evaluator has no cryptographic randomness requirements.
+#[cfg(target_arch = "wasm32")]
+#[no_mangle]
+unsafe extern "Rust" fn __getrandom_v03_custom(
+    dest: *mut u8,
+    len: usize,
+) -> Result<(), getrandom::Error> {
+    // SAFETY: caller guarantees dest..dest+len is valid writable memory.
+    unsafe { core::ptr::write_bytes(dest, 0, len) };
+    Ok(())
+}
+
 // WASM is single-threaded, so we can use RefCell for better semantics.
 // For native targets (testing, library usage), we use Mutex for thread safety.
 
