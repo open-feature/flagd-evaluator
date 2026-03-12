@@ -296,20 +296,6 @@ public class FlagEvaluator implements AutoCloseable {
     }
 
     /**
-     * Update flag configuration from a YAML string.
-     *
-     * <p>Convenience method that delegates to {@link #updateState(String)}.
-     * The WASM module handles YAML conversion internally.
-     *
-     * @param yamlConfig the flag configuration in YAML format
-     * @return the update result containing changed flag keys and pre-evaluated results
-     * @throws EvaluatorException if YAML parsing fails or the configuration is invalid
-     */
-    public UpdateStateResult updateStateFromYaml(String yamlConfig) throws EvaluatorException {
-        return updateState(yamlConfig);
-    }
-
-    /**
      * Updates a single WASM instance with the given config bytes.
      */
     private static UpdateStateResult updateInstance(WasmInstance inst, byte[] configBytes) throws EvaluatorException {

@@ -114,8 +114,6 @@ impl FlagEvaluator {
     }
 
     /// Updates the host-side caches from an `UpdateStateResponse`.
-    ///
-    /// Shared logic used by both `update_state` and `update_state_from_yaml`.
     fn update_caches_from_response(&mut self, response: &::flagd_evaluator::UpdateStateResponse) {
         self.pre_evaluated_cache = response.pre_evaluated.as_ref().cloned().unwrap_or_default();
         self.required_context_keys = match &response.required_context_keys {

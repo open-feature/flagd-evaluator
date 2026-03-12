@@ -29,9 +29,9 @@ class YamlLoadingTest {
         "}}";
 
     @Test
-    void updateStateFromYamlLoadsBooleanFlag() throws Exception {
+    void updateStateLoadsBooleanFlag() throws Exception {
         FlagEvaluator evaluator = new FlagEvaluator();
-        evaluator.updateStateFromYaml(SIMPLE_YAML);
+        evaluator.updateState(SIMPLE_YAML);
 
         EvaluationContext ctx = new MutableContext("user-1");
         EvaluationResult<Boolean> result = evaluator.evaluateFlag(Boolean.class, "bool-flag", ctx);
@@ -39,9 +39,9 @@ class YamlLoadingTest {
     }
 
     @Test
-    void updateStateFromYamlLoadsStringFlag() throws Exception {
+    void updateStateLoadsStringFlag() throws Exception {
         FlagEvaluator evaluator = new FlagEvaluator();
-        evaluator.updateStateFromYaml(SIMPLE_YAML);
+        evaluator.updateState(SIMPLE_YAML);
 
         EvaluationContext ctx = new MutableContext("user-1");
         EvaluationResult<String> result = evaluator.evaluateFlag(String.class, "string-flag", ctx);
@@ -49,16 +49,16 @@ class YamlLoadingTest {
     }
 
     @Test
-    void updateStateFromYamlInvalidYamlThrowsEvaluatorException() {
+    void updateStateInvalidYamlThrowsEvaluatorException() {
         FlagEvaluator evaluator = new FlagEvaluator();
-        assertThatThrownBy(() -> evaluator.updateStateFromYaml("flags:\n  bad: [unclosed"))
+        assertThatThrownBy(() -> evaluator.updateState("flags:\n  bad: [unclosed"))
             .isInstanceOf(EvaluatorException.class);
     }
 
     @Test
-    void updateStateFromYamlAndJsonProduceSameResults() throws Exception {
+    void updateStateYamlAndJsonProduceSameResultsParity() throws Exception {
         FlagEvaluator yamlEvaluator = new FlagEvaluator();
-        yamlEvaluator.updateStateFromYaml(SIMPLE_YAML);
+        yamlEvaluator.updateState(SIMPLE_YAML);
 
         FlagEvaluator jsonEvaluator = new FlagEvaluator();
         jsonEvaluator.updateState(SIMPLE_JSON);
