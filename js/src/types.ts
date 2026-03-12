@@ -16,6 +16,7 @@ export interface UpdateStateResult {
   preEvaluated?: Record<string, EvaluationResult>;
   requiredContextKeys?: Record<string, string[]>;
   flagIndices?: Record<string, number>;
+  flagSetMetadata?: Record<string, unknown>;
 }
 
 /** Host-side cache built from UpdateStateResult. */
@@ -23,4 +24,5 @@ export interface CacheSnapshot {
   preEvaluated: Map<string, EvaluationResult>;
   requiredContextKeys: Map<string, Set<string>>;
   flagIndices: Map<string, number>;
+  flagSetMetadata: Record<string, unknown>;
 }
