@@ -22,6 +22,8 @@ public class UpdateStateResult {
 
     private Map<String, Integer> flagIndices;
 
+    private Map<String, Object> flagSetMetadata;
+
     public UpdateStateResult() {
     }
 
@@ -113,6 +115,20 @@ public class UpdateStateResult {
 
     public void setFlagIndices(Map<String, Integer> flagIndices) {
         this.flagIndices = flagIndices;
+    }
+
+    /**
+     * Gets the flag-set level metadata from the top-level {@code "metadata"} key
+     * in the flag configuration.
+     *
+     * @return map of metadata key to value, or null if not present
+     */
+    public Map<String, Object> getFlagSetMetadata() {
+        return flagSetMetadata;
+    }
+
+    public void setFlagSetMetadata(Map<String, Object> flagSetMetadata) {
+        this.flagSetMetadata = flagSetMetadata;
     }
 
     @Override
