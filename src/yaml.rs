@@ -36,8 +36,7 @@ use serde_json::Value;
 /// assert!(json.contains("my-flag"));
 /// ```
 pub fn yaml_to_json(yaml_str: &str) -> Result<String, String> {
-    let value: Value = serde_yaml::from_str(yaml_str)
-        .map_err(|e| format!("Failed to parse YAML: {}", e))?;
-    serde_json::to_string(&value)
-        .map_err(|e| format!("Failed to serialize to JSON: {}", e))
+    let value: Value =
+        serde_yaml::from_str(yaml_str).map_err(|e| format!("Failed to parse YAML: {}", e))?;
+    serde_json::to_string(&value).map_err(|e| format!("Failed to serialize to JSON: {}", e))
 }

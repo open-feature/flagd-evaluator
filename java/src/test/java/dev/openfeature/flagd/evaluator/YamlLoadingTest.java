@@ -55,7 +55,7 @@ class YamlLoadingTest {
         yamlEvaluator.updateStateFromYaml(SIMPLE_YAML);
 
         FlagEvaluator jsonEvaluator = new FlagEvaluator();
-        jsonEvaluator.updateState("{\"flags\":{\"bool-flag\":{\"state\":\"ENABLED\",\"variants\":{\"on\":true,\"off\":false},\"defaultVariant\":\"on\"}}}");
+        jsonEvaluator.updateState("{\"flags\":{\"bool-flag\":{\"state\":\"ENABLED\",\"variants\":{\"on\":true,\"off\":false},\"defaultVariant\":\"on\"},\"string-flag\":{\"state\":\"ENABLED\",\"variants\":{\"v1\":\"hello\",\"v2\":\"world\"},\"defaultVariant\":\"v1\"}}}");
 
         EvaluationContext ctx = new MutableContext("user-1");
         EvaluationResult<Boolean> yamlResult = yamlEvaluator.evaluateFlag(Boolean.class, "bool-flag", ctx);

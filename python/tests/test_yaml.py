@@ -81,7 +81,9 @@ def test_yaml_and_json_produce_same_results():
 
     json_evaluator = FlagEvaluator()
     json_evaluator.update_state({"flags": {
-        "bool-flag": {"state": "ENABLED", "variants": {"on": True, "off": False}, "defaultVariant": "on"}
+        "bool-flag": {"state": "ENABLED", "variants": {"on": True, "off": False}, "defaultVariant": "on"},
+        "string-flag": {"state": "ENABLED", "variants": {"v1": "hello", "v2": "world"}, "defaultVariant": "v1"},
+        "int-flag": {"state": "ENABLED", "variants": {"low": 10, "high": 100}, "defaultVariant": "low"}
     }})
 
     yaml_result = yaml_evaluator.evaluate_bool("bool-flag", {}, False)

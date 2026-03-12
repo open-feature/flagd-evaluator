@@ -64,6 +64,7 @@ import java.util.concurrent.locks.ReentrantLock;
 public class FlagEvaluator implements AutoCloseable {
 
     static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final org.yaml.snakeyaml.Yaml YAML_PARSER = new org.yaml.snakeyaml.Yaml();
     private static final JsonFactory JSON_FACTORY = new JsonFactory();
     private static final Map<Class, JavaType> JAVA_TYPE_MAP = new HashMap<>();
     private static final EvaluationContextSerializer CONTEXT_SERIALIZER = new EvaluationContextSerializer();
@@ -304,18 +305,15 @@ public class FlagEvaluator implements AutoCloseable {
      */
     public UpdateStateResult updateStateFromYaml(String yamlConfig) throws EvaluatorException {
         try {
-            org.yaml.snakeyaml.Yaml yaml = new org.yaml.snakeyaml.Yaml();
-            Object parsed = yaml.load(yamlConfig);
+            Object parsed = YAML_PARSER.load(yamlConfig);
             String json = OBJECT_MAPPER.writeValueAsString(parsed);
             return updateState(json);
         } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
             throw new EvaluatorException("Failed to convert YAML to JSON: " + e.getMessage(), e);
         } catch (org.yaml.snakeyaml.error.YAMLException e) {
             throw new EvaluatorException("Failed to parse YAML: " + e.getMessage(), e);
-        } catch (EvaluatorException e) {
-            throw e;
         } catch (Exception e) {
-            throw new EvaluatorException("Failed to parse YAML: " + e.getMessage(), e);
+            throw new EvaluatorException("An unexpected error occurred during YAML processing: " + e.getMessage(), e);
         }
     }
 

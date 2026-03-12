@@ -120,6 +120,21 @@ impl FlagEvaluator {
         // Full evaluation path (no optimization data available for this flag)
         self.inner.evaluate_flag(flag_key, context.clone())
     }
+
+    /// Updates the host-side caches from an `UpdateStateResponse`.
+    ///
+    /// Shared logic used by both `update_state` and `update_state_from_yaml`.
+    fn update_caches_from_response(&mut self, response: &::flagd_evaluator::UpdateStateResponse) {
+        self.pre_evaluated_cache = response.pre_evaluated.as_ref().cloned().unwrap_or_default();
+        self.required_context_keys = match &response.required_context_keys {
+            Some(keys_map) => keys_map
+                .iter()
+                .map(|(k, v)| (k.clone(), v.iter().cloned().collect::<HashSet<String>>()))
+                .collect(),
+            None => HashMap::new(),
+        };
+        self.flag_indices = response.flag_indices.as_ref().cloned().unwrap_or_default();
+    }
 }
 
 #[pymethods]
@@ -178,20 +193,8 @@ impl FlagEvaluator {
             ))
         })?;
 
-        // Update pre-evaluated cache
-        self.pre_evaluated_cache = response.pre_evaluated.as_ref().cloned().unwrap_or_default();
-
-        // Update required context keys cache
-        self.required_context_keys = match &response.required_context_keys {
-            Some(keys_map) => keys_map
-                .iter()
-                .map(|(k, v)| (k.clone(), v.iter().cloned().collect::<HashSet<String>>()))
-                .collect(),
-            None => HashMap::new(),
-        };
-
-        // Update flag indices cache
-        self.flag_indices = response.flag_indices.as_ref().cloned().unwrap_or_default();
+        // Update host-side caches
+        self.update_caches_from_response(&response);
 
         // Convert response to Python dict
         pythonize::pythonize(py, &response)
@@ -220,10 +223,7 @@ impl FlagEvaluator {
     fn update_state_from_yaml(&mut self, py: Python, yaml_config: &str) -> PyResult<PyObject> {
         // Parse YAML to serde_json::Value
         let value: serde_json::Value = serde_yaml::from_str(yaml_config).map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-                "Failed to parse YAML: {}",
-                e
-            ))
+            PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Failed to parse YAML: {}", e))
         })?;
 
         // Serialize to JSON string
@@ -242,20 +242,8 @@ impl FlagEvaluator {
             ))
         })?;
 
-        // Update pre-evaluated cache
-        self.pre_evaluated_cache = response.pre_evaluated.as_ref().cloned().unwrap_or_default();
-
-        // Update required context keys cache
-        self.required_context_keys = match &response.required_context_keys {
-            Some(keys_map) => keys_map
-                .iter()
-                .map(|(k, v)| (k.clone(), v.iter().cloned().collect::<HashSet<String>>()))
-                .collect(),
-            None => HashMap::new(),
-        };
-
-        // Update flag indices cache
-        self.flag_indices = response.flag_indices.as_ref().cloned().unwrap_or_default();
+        // Update host-side caches
+        self.update_caches_from_response(&response);
 
         // Convert response to Python dict
         pythonize::pythonize(py, &response)

@@ -192,7 +192,10 @@ impl FlagEvaluator {
     /// # Errors
     ///
     /// Returns an error string if YAML parsing fails or if `update_state` returns an error.
-    pub fn update_state_from_yaml(&mut self, yaml_config: &str) -> Result<UpdateStateResponse, String> {
+    pub fn update_state_from_yaml(
+        &mut self,
+        yaml_config: &str,
+    ) -> Result<UpdateStateResponse, String> {
         let json = crate::yaml::yaml_to_json(yaml_config)?;
         self.update_state(&json)
     }
