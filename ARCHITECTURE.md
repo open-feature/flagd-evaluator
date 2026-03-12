@@ -24,11 +24,9 @@ src/
 ├── evaluation.rs       # Core flag evaluation logic, context enrichment ($flagd properties)
 ├── memory.rs           # WASM memory management (alloc/dealloc, pointer packing)
 ├── storage/            # Thread-local flag state storage
-├── operators/          # Custom JSON Logic operators
+├── operators/          # Custom JSON Logic operators (registered via datalogic_rs::Operator)
 │   ├── fractional.rs   # MurmurHash3-based consistent bucketing for A/B testing
-│   ├── sem_ver.rs      # Semantic version comparison (=, !=, <, <=, >, >=, ^, ~)
-│   ├── starts_with.rs  # String prefix matching
-│   └── ends_with.rs    # String suffix matching
+│   └── sem_ver.rs      # Semantic version comparison (=, !=, <, <=, >, >=, ^, ~)
 ├── model/              # Flag configuration data structures
 └── validation.rs       # JSON Schema validation against flagd schemas
 ```
@@ -84,7 +82,9 @@ The evaluator automatically injects standard `$flagd` properties into the evalua
 
 ## Custom Operators
 
-All registered via `datalogic_rs::Operator` trait in `src/operators/mod.rs`. See the [flagd custom operations spec](https://flagd.dev/reference/specifications/custom-operations/) for full details.
+Two custom operators are implemented in `src/operators/` and registered via `datalogic_rs::Operator` in `src/operators/mod.rs`. See the [flagd custom operations spec](https://flagd.dev/reference/specifications/custom-operations/) for full details.
+
+The `starts_with` and `ends_with` string-matching operators are **built into `datalogic-rs`** and require no custom implementation in this repository.
 
 ## Validation
 
