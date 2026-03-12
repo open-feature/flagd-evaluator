@@ -20,15 +20,7 @@ use std::collections::{HashMap, HashSet};
 ///
 /// Example:
 ///     >>> evaluator = FlagEvaluator()
-///     >>> evaluator.update_state({
-///     ...     "flags": {
-///     ...         "myFlag": {
-///     ...             "state": "ENABLED",
-///     ...             "variants": {"on": True, "off": False},
-///     ...             "defaultVariant": "on"
-///     ...         }
-///     ...     }
-///     ... })
+///     >>> evaluator.update_state('{"flags": {"myFlag": {"state": "ENABLED", "variants": {"on": true, "off": false}, "defaultVariant": "on"}}}')
 ///     >>> result = evaluator.evaluate_bool("myFlag", {}, False)
 ///     >>> print(result)
 ///     True
@@ -162,68 +154,30 @@ impl FlagEvaluator {
         }
     }
 
-    /// Update the flag configuration state
+    /// Update the flag configuration state.
     ///
-    /// Parses the configuration, detects changed flags, and populates host-side
-    /// optimization caches (pre-evaluated results, required context keys, flag indices).
-    ///
-    /// Args:
-    ///     config (dict): Flag configuration in flagd format
-    ///
-    /// Returns:
-    ///     dict: Update response with changed flag keys, pre-evaluated results,
-    ///           required context keys, and flag indices
-    fn update_state(&mut self, py: Python, config: &Bound<'_, PyDict>) -> PyResult<PyObject> {
-        // Convert Python dict to JSON Value
-        let config_value: Value = pythonize::depythonize(config.as_any())?;
-
-        // Convert to JSON string for parsing
-        let config_str = serde_json::to_string(&config_value).map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-                "Failed to serialize config: {}",
-                e
-            ))
-        })?;
-
-        // Delegate to the Rust FlagEvaluator
-        let response = self.inner.update_state(&config_str).map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-                "Failed to update state: {}",
-                e
-            ))
-        })?;
-
-        // Update host-side caches
-        self.update_caches_from_response(&response);
-
-        // Convert response to Python dict
-        pythonize::pythonize(py, &response)
-            .map(|bound| bound.unbind())
-            .map_err(|e| {
-                PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-                    "Failed to convert response: {}",
-                    e
-                ))
-            })
-    }
-
-    /// Update flag configuration from a YAML string.
-    ///
-    /// Delegates to the Rust core which converts YAML to JSON internally.
+    /// Accepts a JSON or YAML string. Format is auto-detected: strings starting
+    /// with `{` are treated as JSON, everything else as YAML.
     ///
     /// Args:
-    ///     yaml_config (str): Flag configuration in YAML format
+    ///     config (str): Flag configuration in JSON or YAML format
     ///
     /// Returns:
     ///     dict: Update response with changed flag keys, pre-evaluated results,
     ///           required context keys, and flag indices
     ///
     /// Raises:
-    ///     ValueError: If YAML parsing fails or the configuration is invalid
-    fn update_state_from_yaml(&mut self, py: Python, yaml_config: &str) -> PyResult<PyObject> {
-        let response = self.inner.update_state_from_yaml(yaml_config).map_err(|e| {
+    ///     ValueError: If parsing fails or the configuration is invalid
+    fn update_state(&mut self, py: Python, config: &str) -> PyResult<PyObject> {
+        // Auto-detect format: JSON starts with '{', everything else is treated as YAML.
+        let response = if config.trim_start().starts_with('{') {
+            self.inner.update_state(config)
+        } else {
+            self.inner.update_state_from_yaml(config)
+        }
+        .map_err(|e| {
             PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-                "Failed to update state from YAML: {}",
+                "Failed to update state: {}",
                 e
             ))
         })?;

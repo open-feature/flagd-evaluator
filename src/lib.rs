@@ -299,62 +299,6 @@ pub extern "C" fn update_state(config_ptr: *const u8, config_len: u32) -> u64 {
     string_to_memory(&response)
 }
 
-/// Updates the flag configuration state from a YAML string.
-///
-/// The YAML is converted to JSON internally before processing. Both JSON and YAML
-/// inputs are accepted — use this export when the input is known to be YAML, or
-/// use `update_state` for auto-detection.
-///
-/// # Safety
-/// The caller must ensure:
-/// - `config_ptr` points to valid memory
-/// - The memory region is valid UTF-8
-/// - The caller will free the returned memory using `dealloc`
-#[no_mangle]
-pub extern "C" fn update_state_from_yaml(config_ptr: *const u8, config_len: u32) -> u64 {
-    let response = update_state_from_yaml_internal(config_ptr, config_len);
-    string_to_memory(&response)
-}
-
-/// Internal implementation of update_state_from_yaml.
-fn update_state_from_yaml_internal(config_ptr: *const u8, config_len: u32) -> String {
-    init_panic_hook();
-
-    // SAFETY: The caller guarantees valid memory regions
-    let config_str = match unsafe { string_from_memory(config_ptr, config_len) } {
-        Ok(s) => s,
-        Err(e) => {
-            return serde_json::json!({
-                "success": false,
-                "error": format!("Failed to read configuration: {}", e),
-                "changedFlags": null
-            })
-            .to_string()
-        }
-    };
-
-    wasm_evaluator::with_evaluator(|eval| {
-        match eval.update_state_from_yaml(&config_str) {
-            Ok(response) => {
-                serde_json::to_string(&response).unwrap_or_else(|e| {
-                    serde_json::json!({
-                        "success": false,
-                        "error": format!("Failed to serialize response: {}", e),
-                        "changedFlags": null
-                    })
-                    .to_string()
-                })
-            }
-            Err(e) => serde_json::json!({
-                "success": false,
-                "error": e,
-                "changedFlags": null
-            })
-            .to_string(),
-        }
-    })
-}
-
 /// Internal implementation of update_state.
 fn update_state_internal(config_ptr: *const u8, config_len: u32) -> String {
     // Initialize panic hook for better error messages
@@ -1335,13 +1279,20 @@ mod tests {
 mod wasm_tests {
     use super::*;
     use serde_json::json;
+    use std::sync::Mutex;
 
-    /// Helper function to reset the WASM singleton evaluator between tests
-    fn reset_wasm_evaluator() {
+    /// Serialize all WASM tests because they share a process-global evaluator.
+    static TEST_LOCK: Mutex<()> = Mutex::new(());
+
+    /// Helper function to reset the WASM singleton evaluator between tests.
+    /// Returns the lock guard so the caller holds it for the test's duration.
+    fn reset_wasm_evaluator() -> std::sync::MutexGuard<'static, ()> {
+        let guard = TEST_LOCK.lock().unwrap();
         wasm_evaluator::with_evaluator(|eval| {
             eval.clear_state();
             eval.set_validation_mode(ValidationMode::Strict);
         });
+        guard
     }
 
     /// Helper to call update_state WASM export
@@ -1384,7 +1335,7 @@ mod wasm_tests {
 
     #[test]
     fn test_wasm_update_state_export() {
-        reset_wasm_evaluator();
+        let _guard = reset_wasm_evaluator();
 
         let config = r#"{
             "flags": {
@@ -1403,7 +1354,7 @@ mod wasm_tests {
 
     #[test]
     fn test_wasm_evaluate_export() {
-        reset_wasm_evaluator();
+        let _guard = reset_wasm_evaluator();
 
         let config = r#"{
             "flags": {
@@ -1437,7 +1388,7 @@ mod wasm_tests {
 
     #[test]
     fn test_wasm_utf8_handling() {
-        reset_wasm_evaluator();
+        let _guard = reset_wasm_evaluator();
 
         let config = r#"{
             "flags": {
@@ -1457,7 +1408,7 @@ mod wasm_tests {
 
     #[test]
     fn test_wasm_evaluate_by_index() {
-        reset_wasm_evaluator();
+        let _guard = reset_wasm_evaluator();
 
         let config = r#"{
             "flags": {
@@ -1526,7 +1477,7 @@ mod wasm_tests {
 
     #[test]
     fn test_wasm_evaluate_by_index_invalid_index() {
-        reset_wasm_evaluator();
+        let _guard = reset_wasm_evaluator();
 
         let config = r#"{
             "flags": {
