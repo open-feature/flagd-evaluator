@@ -30,6 +30,9 @@ ahash = { version = "0.8.12", default-features = false, features = ["compile-tim
 # Enable wasm_js feature for getrandom in WASM builds (required for wasm32-unknown-unknown)
 getrandom = { version = "0.3", features = ["wasm_js"] }
 
+[target.'cfg(not(target_family = "wasm"))'.dependencies]
+serde_yaml = "0.9"
+
 [dev-dependencies]
 wasm-bindgen-test = "0.3"
 assert_cmd = "2.0"

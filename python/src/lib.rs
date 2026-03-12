@@ -204,6 +204,70 @@ impl FlagEvaluator {
             })
     }
 
+    /// Update flag configuration from a YAML string.
+    ///
+    /// Converts the YAML configuration to JSON and delegates to ``update_state``.
+    ///
+    /// Args:
+    ///     yaml_config (str): Flag configuration in YAML format
+    ///
+    /// Returns:
+    ///     dict: Update response with changed flag keys, pre-evaluated results,
+    ///           required context keys, and flag indices
+    ///
+    /// Raises:
+    ///     ValueError: If YAML parsing fails or the configuration is invalid
+    fn update_state_from_yaml(&mut self, py: Python, yaml_config: &str) -> PyResult<PyObject> {
+        // Parse YAML to serde_json::Value
+        let value: serde_json::Value = serde_yaml::from_str(yaml_config).map_err(|e| {
+            PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                "Failed to parse YAML: {}",
+                e
+            ))
+        })?;
+
+        // Serialize to JSON string
+        let config_str = serde_json::to_string(&value).map_err(|e| {
+            PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                "Failed to serialize to JSON: {}",
+                e
+            ))
+        })?;
+
+        // Delegate to the Rust FlagEvaluator
+        let response = self.inner.update_state(&config_str).map_err(|e| {
+            PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                "Failed to update state: {}",
+                e
+            ))
+        })?;
+
+        // Update pre-evaluated cache
+        self.pre_evaluated_cache = response.pre_evaluated.as_ref().cloned().unwrap_or_default();
+
+        // Update required context keys cache
+        self.required_context_keys = match &response.required_context_keys {
+            Some(keys_map) => keys_map
+                .iter()
+                .map(|(k, v)| (k.clone(), v.iter().cloned().collect::<HashSet<String>>()))
+                .collect(),
+            None => HashMap::new(),
+        };
+
+        // Update flag indices cache
+        self.flag_indices = response.flag_indices.as_ref().cloned().unwrap_or_default();
+
+        // Convert response to Python dict
+        pythonize::pythonize(py, &response)
+            .map(|bound| bound.unbind())
+            .map_err(|e| {
+                PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                    "Failed to convert response: {}",
+                    e
+                ))
+            })
+    }
+
     /// Evaluate a feature flag
     ///
     /// Uses host-side optimizations when available:

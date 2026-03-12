@@ -293,6 +293,33 @@ public class FlagEvaluator implements AutoCloseable {
     }
 
     /**
+     * Update flag configuration from a YAML string.
+     *
+     * <p>Converts the YAML configuration to JSON and delegates to {@link #updateState(String)}.
+     * The flagd JSON Schema validation applies to the converted configuration.
+     *
+     * @param yamlConfig the flag configuration in YAML format
+     * @return the update result containing changed flag keys and pre-evaluated results
+     * @throws EvaluatorException if YAML parsing fails or the configuration is invalid
+     */
+    public UpdateStateResult updateStateFromYaml(String yamlConfig) throws EvaluatorException {
+        try {
+            org.yaml.snakeyaml.Yaml yaml = new org.yaml.snakeyaml.Yaml();
+            Object parsed = yaml.load(yamlConfig);
+            String json = OBJECT_MAPPER.writeValueAsString(parsed);
+            return updateState(json);
+        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+            throw new EvaluatorException("Failed to convert YAML to JSON: " + e.getMessage(), e);
+        } catch (org.yaml.snakeyaml.error.YAMLException e) {
+            throw new EvaluatorException("Failed to parse YAML: " + e.getMessage(), e);
+        } catch (EvaluatorException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new EvaluatorException("Failed to parse YAML: " + e.getMessage(), e);
+        }
+    }
+
+    /**
      * Updates a single WASM instance with the given config bytes.
      */
     private static UpdateStateResult updateInstance(WasmInstance inst, byte[] configBytes) throws EvaluatorException {

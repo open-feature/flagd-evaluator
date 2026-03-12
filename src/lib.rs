@@ -145,6 +145,8 @@ pub mod model;
 pub mod operators;
 pub mod types;
 pub mod validation;
+#[cfg(not(target_family = "wasm"))]
+pub mod yaml;
 
 /// Gets the current Unix timestamp in seconds.
 ///

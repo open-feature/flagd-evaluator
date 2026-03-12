@@ -183,6 +183,20 @@ impl FlagEvaluator {
         })
     }
 
+    #[cfg(not(target_family = "wasm"))]
+    /// Load flag configuration from a YAML string.
+    ///
+    /// Converts the YAML to JSON and calls [`update_state`]. The JSON Schema
+    /// validation that runs inside `update_state` applies to the converted JSON.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error string if YAML parsing fails or if `update_state` returns an error.
+    pub fn update_state_from_yaml(&mut self, yaml_config: &str) -> Result<UpdateStateResponse, String> {
+        let json = crate::yaml::yaml_to_json(yaml_config)?;
+        self.update_state(&json)
+    }
+
     /// Gets a reference to the current flag state.
     pub fn get_state(&self) -> Option<&ParsingResult> {
         self.state.as_ref()
