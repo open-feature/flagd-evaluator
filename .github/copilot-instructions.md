@@ -292,7 +292,7 @@ A GitHub Actions workflow (`.github/workflows/pr-title.yml`) automatically valid
 
 Use `!` after the type/scope or include `BREAKING CHANGE:` in the PR body for breaking changes, which trigger a major version bump.
 
-For more details, see the <a>PR template</a> and [Contributing Guide](../CONTRIBUTING.md).
+For more details, see the <a href="../.github/pull_request_template.md">PR template</a> and [Contributing Guide](../CONTRIBUTING.md).
 
 ## Testing Guidelines
 
