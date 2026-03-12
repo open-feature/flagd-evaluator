@@ -145,7 +145,6 @@ pub mod model;
 pub mod operators;
 pub mod types;
 pub mod validation;
-#[cfg(not(target_family = "wasm"))]
 pub mod yaml;
 
 /// Gets the current Unix timestamp in seconds.
@@ -300,6 +299,62 @@ pub extern "C" fn update_state(config_ptr: *const u8, config_len: u32) -> u64 {
     string_to_memory(&response)
 }
 
+/// Updates the flag configuration state from a YAML string.
+///
+/// The YAML is converted to JSON internally before processing. Both JSON and YAML
+/// inputs are accepted — use this export when the input is known to be YAML, or
+/// use `update_state` for auto-detection.
+///
+/// # Safety
+/// The caller must ensure:
+/// - `config_ptr` points to valid memory
+/// - The memory region is valid UTF-8
+/// - The caller will free the returned memory using `dealloc`
+#[no_mangle]
+pub extern "C" fn update_state_from_yaml(config_ptr: *const u8, config_len: u32) -> u64 {
+    let response = update_state_from_yaml_internal(config_ptr, config_len);
+    string_to_memory(&response)
+}
+
+/// Internal implementation of update_state_from_yaml.
+fn update_state_from_yaml_internal(config_ptr: *const u8, config_len: u32) -> String {
+    init_panic_hook();
+
+    // SAFETY: The caller guarantees valid memory regions
+    let config_str = match unsafe { string_from_memory(config_ptr, config_len) } {
+        Ok(s) => s,
+        Err(e) => {
+            return serde_json::json!({
+                "success": false,
+                "error": format!("Failed to read configuration: {}", e),
+                "changedFlags": null
+            })
+            .to_string()
+        }
+    };
+
+    wasm_evaluator::with_evaluator(|eval| {
+        match eval.update_state_from_yaml(&config_str) {
+            Ok(response) => {
+                serde_json::to_string(&response).unwrap_or_else(|e| {
+                    serde_json::json!({
+                        "success": false,
+                        "error": format!("Failed to serialize response: {}", e),
+                        "changedFlags": null
+                    })
+                    .to_string()
+                })
+            }
+            Err(e) => serde_json::json!({
+                "success": false,
+                "error": e,
+                "changedFlags": null
+            })
+            .to_string(),
+        }
+    })
+}
+
 /// Internal implementation of update_state.
 fn update_state_internal(config_ptr: *const u8, config_len: u32) -> String {
     // Initialize panic hook for better error messages
@@ -318,9 +373,17 @@ fn update_state_internal(config_ptr: *const u8, config_len: u32) -> String {
         }
     };
 
+    // Auto-detect format: JSON starts with '{', everything else is treated as YAML.
+    let method: fn(&mut evaluator::FlagEvaluator, &str) -> Result<_, String> =
+        if config_str.trim_start().starts_with('{') {
+            |eval, s| eval.update_state(s)
+        } else {
+            |eval, s| eval.update_state_from_yaml(s)
+        };
+
     // Parse and store the configuration using the singleton evaluator
     wasm_evaluator::with_evaluator(|eval| {
-        match eval.update_state(&config_str) {
+        match method(eval, &config_str) {
             Ok(response) => {
                 // Convert UpdateStateResponse to JSON
                 serde_json::to_string(&response).unwrap_or_else(|e| {

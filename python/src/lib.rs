@@ -209,7 +209,7 @@ impl FlagEvaluator {
 
     /// Update flag configuration from a YAML string.
     ///
-    /// Converts the YAML configuration to JSON and delegates to ``update_state``.
+    /// Delegates to the Rust core which converts YAML to JSON internally.
     ///
     /// Args:
     ///     yaml_config (str): Flag configuration in YAML format
@@ -221,23 +221,9 @@ impl FlagEvaluator {
     /// Raises:
     ///     ValueError: If YAML parsing fails or the configuration is invalid
     fn update_state_from_yaml(&mut self, py: Python, yaml_config: &str) -> PyResult<PyObject> {
-        // Parse YAML to serde_json::Value
-        let value: serde_json::Value = serde_yaml::from_str(yaml_config).map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyValueError, _>(format!("Failed to parse YAML: {}", e))
-        })?;
-
-        // Serialize to JSON string
-        let config_str = serde_json::to_string(&value).map_err(|e| {
+        let response = self.inner.update_state_from_yaml(yaml_config).map_err(|e| {
             PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-                "Failed to serialize to JSON: {}",
-                e
-            ))
-        })?;
-
-        // Delegate to the Rust FlagEvaluator
-        let response = self.inner.update_state(&config_str).map_err(|e| {
-            PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
-                "Failed to update state: {}",
+                "Failed to update state from YAML: {}",
                 e
             ))
         })?;

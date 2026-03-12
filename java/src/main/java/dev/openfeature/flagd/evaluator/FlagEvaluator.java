@@ -64,7 +64,6 @@ import java.util.concurrent.locks.ReentrantLock;
 public class FlagEvaluator implements AutoCloseable {
 
     static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-    private static final org.yaml.snakeyaml.Yaml YAML_PARSER = new org.yaml.snakeyaml.Yaml();
     private static final JsonFactory JSON_FACTORY = new JsonFactory();
     private static final Map<Class, JavaType> JAVA_TYPE_MAP = new HashMap<>();
     private static final EvaluationContextSerializer CONTEXT_SERIALIZER = new EvaluationContextSerializer();
@@ -223,13 +222,9 @@ public class FlagEvaluator implements AutoCloseable {
     /**
      * Updates the flag state across all WASM instances in the pool.
      *
-     * <p>The format of {@code config} is detected automatically:
-     * <ul>
-     *   <li>If the trimmed string starts with {@code {}, it is treated as JSON and
-     *       passed directly to the WASM boundary.</li>
-     *   <li>Otherwise it is treated as YAML, converted to JSON via SnakeYAML, and
-     *       then passed to the WASM boundary.</li>
-     * </ul>
+     * <p>The config string is passed directly to the WASM module, which handles
+     * format detection and any necessary conversion internally. Both JSON and YAML
+     * flag configurations are accepted.
      *
      * <p>All instances are drained from the pool, updated (in parallel for instances
      * beyond the first), then returned with a new generation stamp.
@@ -239,10 +234,9 @@ public class FlagEvaluator implements AutoCloseable {
      * @throws EvaluatorException if the update fails or the config cannot be parsed
      */
     public UpdateStateResult updateState(String config) throws EvaluatorException {
-        String jsonConfig = config.stripLeading().startsWith("{") ? config : convertYamlToJson(config);
         updateLock.lock();
         try {
-            byte[] configBytes = jsonConfig.getBytes(StandardCharsets.UTF_8);
+            byte[] configBytes = config.getBytes(StandardCharsets.UTF_8);
 
             // Drain all instances from pool
             List<WasmInstance> instances = new ArrayList<>(poolSize);
@@ -305,27 +299,14 @@ public class FlagEvaluator implements AutoCloseable {
      * Update flag configuration from a YAML string.
      *
      * <p>Convenience method that delegates to {@link #updateState(String)}.
-     * Prefer {@code updateState} when the format of the input is not known in advance.
+     * The WASM module handles YAML conversion internally.
      *
      * @param yamlConfig the flag configuration in YAML format
      * @return the update result containing changed flag keys and pre-evaluated results
      * @throws EvaluatorException if YAML parsing fails or the configuration is invalid
      */
     public UpdateStateResult updateStateFromYaml(String yamlConfig) throws EvaluatorException {
-        return updateState(convertYamlToJson(yamlConfig));
-    }
-
-    private String convertYamlToJson(String yamlConfig) throws EvaluatorException {
-        try {
-            Object parsed = YAML_PARSER.load(yamlConfig);
-            return OBJECT_MAPPER.writeValueAsString(parsed);
-        } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
-            throw new EvaluatorException("Failed to convert YAML to JSON: " + e.getMessage(), e);
-        } catch (org.yaml.snakeyaml.error.YAMLException e) {
-            throw new EvaluatorException("Failed to parse YAML: " + e.getMessage(), e);
-        } catch (Exception e) {
-            throw new EvaluatorException("An unexpected error occurred during YAML processing: " + e.getMessage(), e);
-        }
+        return updateState(yamlConfig);
     }
 
     /**
@@ -340,7 +321,14 @@ public class FlagEvaluator implements AutoCloseable {
             int resultLen = (int) (packedResult & 0xFFFFFFFFL);
             String resultJson = inst.memory.readString(resultPtr, resultLen);
             inst.deallocFunction.apply(resultPtr, resultLen);
-            return OBJECT_MAPPER.readValue(resultJson, UpdateStateResult.class);
+            UpdateStateResult result = OBJECT_MAPPER.readValue(resultJson, UpdateStateResult.class);
+            if (!result.isSuccess()) {
+                throw new EvaluatorException(
+                        result.getError() != null ? result.getError() : "update_state returned success=false");
+            }
+            return result;
+        } catch (EvaluatorException e) {
+            throw e;
         } catch (Exception e) {
             throw new EvaluatorException("Failed to update state", e);
         } finally {

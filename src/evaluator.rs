@@ -183,7 +183,6 @@ impl FlagEvaluator {
         })
     }
 
-    #[cfg(not(target_family = "wasm"))]
     /// Load flag configuration from a YAML string.
     ///
     /// Converts the YAML to JSON and calls [`update_state`]. The JSON Schema

@@ -1245,7 +1245,6 @@ fn test_sem_ver_edge_cases() {
     }
 }
 
-#[cfg(not(target_family = "wasm"))]
 mod yaml_tests {
     use flagd_evaluator::{FlagEvaluator, ValidationMode};
 
