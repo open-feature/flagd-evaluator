@@ -553,29 +553,27 @@ public class FlagEvaluator implements AutoCloseable, Evaluator {
     // Evaluator interface implementation
     // ─────────────────────────────────────────────────────────
 
-    @Override
-    public void setFlags(String flagConfigurationJson) throws FlagStoreException {
+    private UpdateStateResult updateStateAndHandleErrors(String flagConfigurationJson) throws FlagStoreException {
         try {
             UpdateStateResult result = updateState(flagConfigurationJson);
             if (!result.isSuccess()) {
                 throw new FlagStoreException(result.getError() != null ? result.getError() : "Failed to set flags");
             }
+            return result;
         } catch (EvaluatorException e) {
             throw new FlagStoreException(e.getMessage(), e);
         }
     }
 
     @Override
+    public void setFlags(String flagConfigurationJson) throws FlagStoreException {
+        updateStateAndHandleErrors(flagConfigurationJson);
+    }
+
+    @Override
     public List<String> setFlagsAndGetChangedKeys(String flagConfigurationJson) throws FlagStoreException {
-        try {
-            UpdateStateResult result = updateState(flagConfigurationJson);
-            if (!result.isSuccess()) {
-                throw new FlagStoreException(result.getError() != null ? result.getError() : "Failed to set flags");
-            }
-            return result.getChangedFlags() != null ? result.getChangedFlags() : Collections.emptyList();
-        } catch (EvaluatorException e) {
-            throw new FlagStoreException(e.getMessage(), e);
-        }
+        UpdateStateResult result = updateStateAndHandleErrors(flagConfigurationJson);
+        return result.getChangedFlags() != null ? result.getChangedFlags() : Collections.emptyList();
     }
 
     @Override
