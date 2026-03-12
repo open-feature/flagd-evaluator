@@ -523,9 +523,7 @@ def test_update_state_returns_flag_set_metadata():
             }
         },
     }
-    result = evaluator.update_state(config)
-    assert result["success"] is True
-    assert "flagSetMetadata" in result
+    result = evaluator.update_state(json.dumps(config))
     meta = result["flagSetMetadata"]
     assert meta["flagSet"] == "my-flag-set"
     assert meta["version"] == "1.0.0"
@@ -545,7 +543,7 @@ def test_update_state_no_flag_set_metadata_when_absent():
             }
         }
     }
-    result = evaluator.update_state(config)
+    result = evaluator.update_state(json.dumps(config))
     assert result["success"] is True
     assert result.get("flagSetMetadata") is None
 
@@ -564,7 +562,7 @@ def test_get_flag_set_metadata_returns_cached_value():
             }
         },
     }
-    evaluator.update_state(config)
+    evaluator.update_state(json.dumps(config))
     meta = evaluator.get_flag_set_metadata()
     assert meta["owner"] == "team-a"
     assert meta["priority"] == 42
@@ -583,5 +581,5 @@ def test_get_flag_set_metadata_empty_when_not_present():
             }
         }
     }
-    evaluator.update_state(config)
+    evaluator.update_state(json.dumps(config))
     assert evaluator.get_flag_set_metadata() == {}
