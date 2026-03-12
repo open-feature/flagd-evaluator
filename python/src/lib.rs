@@ -42,6 +42,9 @@ struct FlagEvaluator {
     /// Flag key to numeric index mapping for evaluate_by_index.
     /// Allows using O(1) Vec lookup on the Rust side instead of HashMap lookup.
     flag_indices: HashMap<String, u32>,
+
+    /// Flag-set level metadata from the top-level "metadata" key in the config.
+    flag_set_metadata: HashMap<String, serde_json::Value>,
 }
 
 impl FlagEvaluator {
@@ -149,6 +152,7 @@ impl FlagEvaluator {
             pre_evaluated_cache: HashMap::new(),
             required_context_keys: HashMap::new(),
             flag_indices: HashMap::new(),
+            flag_set_metadata: HashMap::new(),
         }
     }
 
@@ -182,6 +186,9 @@ impl FlagEvaluator {
 
         // Update host-side caches
         self.update_caches_from_response(&response);
+
+        // Update flag-set metadata cache
+        self.flag_set_metadata = response.flag_set_metadata.as_ref().cloned().unwrap_or_default();
 
         // Convert response to Python dict
         pythonize::pythonize(py, &response)
@@ -337,6 +344,21 @@ impl FlagEvaluator {
             Value::Number(n) => Ok(n.as_f64().unwrap_or(default_value)),
             _ => Ok(default_value),
         }
+    }
+
+    /// Get the flag-set level metadata from the most recent update_state() call.
+    ///
+    /// Returns:
+    ///     dict: Flag-set metadata, or an empty dict if no metadata was present.
+    fn get_flag_set_metadata(&self, py: Python) -> PyResult<PyObject> {
+        pythonize::pythonize(py, &self.flag_set_metadata)
+            .map(|bound| bound.unbind())
+            .map_err(|e| {
+                PyErr::new::<pyo3::exceptions::PyValueError, _>(format!(
+                    "Failed to convert metadata: {}",
+                    e
+                ))
+            })
     }
 }
 

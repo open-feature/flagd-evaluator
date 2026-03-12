@@ -163,3 +163,12 @@ class FlagEvaluator:
             KeyError: If flag is not found
         """
         ...
+
+    def get_flag_set_metadata(self) -> Dict[str, Any]:
+        """
+        Get the flag-set level metadata from the most recent update_state() call.
+
+        Returns:
+            Dict containing flag-set metadata, or empty dict if not present.
+        """
+        ...
