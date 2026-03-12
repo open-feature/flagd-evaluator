@@ -223,15 +223,23 @@ public class FlagEvaluator implements AutoCloseable {
     /**
      * Updates the flag state across all WASM instances in the pool.
      *
-     * <p>The configuration should be a JSON string following the flagd flag schema.
-     * All instances are drained from the pool, updated (in parallel for instances
+     * <p>The format of {@code config} is detected automatically:
+     * <ul>
+     *   <li>If the trimmed string starts with {@code {}, it is treated as JSON and
+     *       passed directly to the WASM boundary.</li>
+     *   <li>Otherwise it is treated as YAML, converted to JSON via SnakeYAML, and
+     *       then passed to the WASM boundary.</li>
+     * </ul>
+     *
+     * <p>All instances are drained from the pool, updated (in parallel for instances
      * beyond the first), then returned with a new generation stamp.
      *
-     * @param jsonConfig the flag configuration as JSON
+     * @param config the flag configuration as either a JSON or YAML string
      * @return the update result containing changed flag keys
-     * @throws EvaluatorException if the update fails
+     * @throws EvaluatorException if the update fails or the config cannot be parsed
      */
-    public UpdateStateResult updateState(String jsonConfig) throws EvaluatorException {
+    public UpdateStateResult updateState(String config) throws EvaluatorException {
+        String jsonConfig = config.stripLeading().startsWith("{") ? config : convertYamlToJson(config);
         updateLock.lock();
         try {
             byte[] configBytes = jsonConfig.getBytes(StandardCharsets.UTF_8);
@@ -296,18 +304,21 @@ public class FlagEvaluator implements AutoCloseable {
     /**
      * Update flag configuration from a YAML string.
      *
-     * <p>Converts the YAML configuration to JSON and delegates to {@link #updateState(String)}.
-     * The flagd JSON Schema validation applies to the converted configuration.
+     * <p>Convenience method that delegates to {@link #updateState(String)}.
+     * Prefer {@code updateState} when the format of the input is not known in advance.
      *
      * @param yamlConfig the flag configuration in YAML format
      * @return the update result containing changed flag keys and pre-evaluated results
      * @throws EvaluatorException if YAML parsing fails or the configuration is invalid
      */
     public UpdateStateResult updateStateFromYaml(String yamlConfig) throws EvaluatorException {
+        return updateState(convertYamlToJson(yamlConfig));
+    }
+
+    private String convertYamlToJson(String yamlConfig) throws EvaluatorException {
         try {
             Object parsed = YAML_PARSER.load(yamlConfig);
-            String json = OBJECT_MAPPER.writeValueAsString(parsed);
-            return updateState(json);
+            return OBJECT_MAPPER.writeValueAsString(parsed);
         } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
             throw new EvaluatorException("Failed to convert YAML to JSON: " + e.getMessage(), e);
         } catch (org.yaml.snakeyaml.error.YAMLException e) {

@@ -22,6 +22,12 @@ class YamlLoadingTest {
         "      v2: world\n" +
         "    defaultVariant: v1\n";
 
+    private static final String SIMPLE_JSON =
+        "{\"flags\":{" +
+        "\"bool-flag\":{\"state\":\"ENABLED\",\"variants\":{\"on\":true,\"off\":false},\"defaultVariant\":\"on\"}," +
+        "\"string-flag\":{\"state\":\"ENABLED\",\"variants\":{\"v1\":\"hello\",\"v2\":\"world\"},\"defaultVariant\":\"v1\"}" +
+        "}}";
+
     @Test
     void updateStateFromYamlLoadsBooleanFlag() throws Exception {
         FlagEvaluator evaluator = new FlagEvaluator();
@@ -55,12 +61,60 @@ class YamlLoadingTest {
         yamlEvaluator.updateStateFromYaml(SIMPLE_YAML);
 
         FlagEvaluator jsonEvaluator = new FlagEvaluator();
-        jsonEvaluator.updateState("{\"flags\":{\"bool-flag\":{\"state\":\"ENABLED\",\"variants\":{\"on\":true,\"off\":false},\"defaultVariant\":\"on\"},\"string-flag\":{\"state\":\"ENABLED\",\"variants\":{\"v1\":\"hello\",\"v2\":\"world\"},\"defaultVariant\":\"v1\"}}}");
+        jsonEvaluator.updateState(SIMPLE_JSON);
 
         EvaluationContext ctx = new MutableContext("user-1");
         EvaluationResult<Boolean> yamlResult = yamlEvaluator.evaluateFlag(Boolean.class, "bool-flag", ctx);
         EvaluationResult<Boolean> jsonResult = jsonEvaluator.evaluateFlag(Boolean.class, "bool-flag", ctx);
         assertThat(yamlResult.getValue()).isEqualTo(jsonResult.getValue());
         assertThat(yamlResult.getVariant()).isEqualTo(jsonResult.getVariant());
+
+        EvaluationResult<String> yamlStrResult = yamlEvaluator.evaluateFlag(String.class, "string-flag", ctx);
+        EvaluationResult<String> jsonStrResult = jsonEvaluator.evaluateFlag(String.class, "string-flag", ctx);
+        assertThat(yamlStrResult.getValue()).isEqualTo(jsonStrResult.getValue());
+        assertThat(yamlStrResult.getVariant()).isEqualTo(jsonStrResult.getVariant());
+    }
+
+    // Auto-detection tests
+
+    @Test
+    void updateStateAutoDetectsYaml() throws Exception {
+        FlagEvaluator evaluator = new FlagEvaluator();
+        evaluator.updateState(SIMPLE_YAML);
+
+        EvaluationContext ctx = new MutableContext("user-1");
+        EvaluationResult<Boolean> result = evaluator.evaluateFlag(Boolean.class, "bool-flag", ctx);
+        assertThat(result.getValue()).isTrue();
+    }
+
+    @Test
+    void updateStateAutoDetectsJson() throws Exception {
+        FlagEvaluator evaluator = new FlagEvaluator();
+        evaluator.updateState(SIMPLE_JSON);
+
+        EvaluationContext ctx = new MutableContext("user-1");
+        EvaluationResult<Boolean> result = evaluator.evaluateFlag(Boolean.class, "bool-flag", ctx);
+        assertThat(result.getValue()).isTrue();
+    }
+
+    @Test
+    void updateStateYamlAndJsonProduceSameResults() throws Exception {
+        FlagEvaluator yamlEvaluator = new FlagEvaluator();
+        yamlEvaluator.updateState(SIMPLE_YAML);
+
+        FlagEvaluator jsonEvaluator = new FlagEvaluator();
+        jsonEvaluator.updateState(SIMPLE_JSON);
+
+        EvaluationContext ctx = new MutableContext("user-1");
+
+        EvaluationResult<Boolean> yamlBool = yamlEvaluator.evaluateFlag(Boolean.class, "bool-flag", ctx);
+        EvaluationResult<Boolean> jsonBool = jsonEvaluator.evaluateFlag(Boolean.class, "bool-flag", ctx);
+        assertThat(yamlBool.getValue()).isEqualTo(jsonBool.getValue());
+        assertThat(yamlBool.getVariant()).isEqualTo(jsonBool.getVariant());
+
+        EvaluationResult<String> yamlStr = yamlEvaluator.evaluateFlag(String.class, "string-flag", ctx);
+        EvaluationResult<String> jsonStr = jsonEvaluator.evaluateFlag(String.class, "string-flag", ctx);
+        assertThat(yamlStr.getValue()).isEqualTo(jsonStr.getValue());
+        assertThat(yamlStr.getVariant()).isEqualTo(jsonStr.getVariant());
     }
 }
