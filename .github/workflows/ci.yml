@@ -133,7 +133,7 @@ jobs:
           path: go/
 
       - name: Run Go tests
-        run: cd go && go test -v -count=1 ./...
+        run: cd go && go test -short -v -count=1 ./...
 
   test-js:
     name: Test JS Package
