@@ -188,7 +188,11 @@ impl FlagEvaluator {
         self.update_caches_from_response(&response);
 
         // Update flag-set metadata cache
-        self.flag_set_metadata = response.flag_set_metadata.as_ref().cloned().unwrap_or_default();
+        self.flag_set_metadata = response
+            .flag_set_metadata
+            .as_ref()
+            .cloned()
+            .unwrap_or_default();
 
         // Convert response to Python dict
         pythonize::pythonize(py, &response)

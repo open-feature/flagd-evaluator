@@ -1400,7 +1400,9 @@ fn test_update_state_flag_set_metadata_present() {
     let response = evaluator.update_state(config).unwrap();
     assert!(response.success);
 
-    let metadata = response.flag_set_metadata.expect("flag_set_metadata should be present");
+    let metadata = response
+        .flag_set_metadata
+        .expect("flag_set_metadata should be present");
     assert_eq!(metadata.get("flagSet"), Some(&json!("my-flag-set")));
     assert_eq!(metadata.get("version"), Some(&json!("1.0.0")));
     assert_eq!(metadata.get("environment"), Some(&json!("production")));
