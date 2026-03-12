@@ -155,7 +155,7 @@ Semantic version comparison with all standard operators plus caret (`^`) and til
 
 ### starts_with / ends_with
 
-Case-sensitive string prefix and suffix matching.
+Case-sensitive string prefix and suffix matching. These are **built-in operators provided by [datalogic-rs](https://github.com/cozylogic/datalogic-rs)** — no custom implementation exists in this repository.
 
 ```json
 {"starts_with": [{"var": "email"}, "admin@"]}
