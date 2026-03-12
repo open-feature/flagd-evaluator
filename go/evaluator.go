@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
@@ -59,6 +60,7 @@ type FlagEvaluator struct {
 
 	// Config retained for creating new instances
 	permissiveValidation bool
+	evaluationTimeout    time.Duration
 }
 
 // NewFlagEvaluator creates a new flag evaluator with the given options.
@@ -100,6 +102,7 @@ func NewFlagEvaluator(opts ...Option) (*FlagEvaluator, error) {
 		pool:                 make(chan *wasmInstance, poolSize),
 		poolSize:             poolSize,
 		permissiveValidation: cfg.permissiveValidation,
+		evaluationTimeout:    cfg.evaluationTimeout,
 	}
 
 	// Store empty cache

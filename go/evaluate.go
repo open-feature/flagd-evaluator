@@ -100,12 +100,21 @@ func (e *FlagEvaluator) evaluateFlag(flagKey string, ctx map[string]interface{})
 		}
 	}
 
-	// Evaluate using the instance
+	// Evaluate using the instance.
+	// Wrap with a per-call timeout when configured to prevent goroutines from
+	// hanging indefinitely inside the wazero interpreter under GC pressure.
+	callCtx := e.ctx
+	if e.evaluationTimeout > 0 {
+		var cancel context.CancelFunc
+		callCtx, cancel = context.WithTimeout(e.ctx, e.evaluationTimeout)
+		defer cancel()
+	}
+
 	flagIndex, hasIndex := snap.flagIndex[flagKey]
 	if hasIndex && inst.evalByIndexFn != nil && requiredKeys != nil {
-		return evaluateByIndex(e.ctx, inst, flagIndex, contextBytes)
+		return evaluateByIndex(callCtx, inst, flagIndex, contextBytes)
 	}
-	return evaluateReusable(e.ctx, inst, flagKey, contextBytes)
+	return evaluateReusable(callCtx, inst, flagKey, contextBytes)
 }
 
 // evaluateByIndex calls the evaluate_by_index WASM export on a specific instance.

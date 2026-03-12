@@ -1,5 +1,7 @@
 package evaluator
 
+import "time"
+
 // EvaluationResult contains the result of a flag evaluation.
 type EvaluationResult struct {
 	Value        interface{}            `json:"value"`
@@ -31,6 +33,7 @@ type Option func(*evaluatorConfig)
 type evaluatorConfig struct {
 	permissiveValidation bool
 	poolSize             int
+	evaluationTimeout    time.Duration
 }
 
 // WithPermissiveValidation configures the evaluator to accept invalid flag
@@ -47,6 +50,17 @@ func WithPermissiveValidation() Option {
 func WithPoolSize(n int) Option {
 	return func(c *evaluatorConfig) {
 		c.poolSize = n
+	}
+}
+
+// WithEvaluationTimeout sets a per-call deadline for WASM evaluation.
+// If a single EvaluateFlag call exceeds this duration, it is cancelled and
+// returns an error. This prevents goroutines from hanging indefinitely inside
+// the wazero interpreter under GC pressure or resource contention.
+// A value of 0 (the default) disables the per-call timeout.
+func WithEvaluationTimeout(d time.Duration) Option {
+	return func(c *evaluatorConfig) {
+		c.evaluationTimeout = d
 	}
 }
 

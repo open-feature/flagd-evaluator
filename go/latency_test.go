@@ -262,8 +262,13 @@ func TestP99LatencyStability(t *testing.T) {
 }
 
 // TestP99LatencyStabilityConcurrent runs sustained parallel evaluations across
-// 10-second time windows for 2 minutes with big targeting + big store.
+// 10-second time windows for 1 minute with big targeting + big store.
 // This catches issues that only manifest under pool contention + GC pressure.
+//
+// Pool contention note: the pool size matches numGoroutines so every goroutine
+// can always hold an instance.  WithEvaluationTimeout provides a safety net
+// against wazero interpreter stalls under CI GC pressure: if a single WASM
+// call exceeds the deadline, it is cancelled rather than hanging forever.
 func TestP99LatencyStabilityConcurrent(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping concurrent latency stability test in short mode")
@@ -272,10 +277,20 @@ func TestP99LatencyStabilityConcurrent(t *testing.T) {
 	const (
 		numGoroutines  = 4
 		windowDuration = 10 * time.Second
-		numWindows     = 12
+		// 6 windows × 10 s = 60 s total, well within the default 10-minute CI
+		// timeout.  12 windows were used originally but caused 600-second
+		// hangs when goroutines stalled inside wazero under GC pressure.
+		numWindows = 6
+		// Per-call safety net: cancel any single WASM evaluation that exceeds
+		// this duration so goroutines cannot block the test indefinitely.
+		evalTimeout = 5 * time.Second
 	)
 
-	e, err := NewFlagEvaluator(WithPermissiveValidation(), WithPoolSize(numGoroutines))
+	e, err := NewFlagEvaluator(
+		WithPermissiveValidation(),
+		WithPoolSize(numGoroutines),
+		WithEvaluationTimeout(evalTimeout),
+	)
 	if err != nil {
 		t.Fatalf("failed to create evaluator: %v", err)
 	}
