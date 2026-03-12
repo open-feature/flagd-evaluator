@@ -289,3 +289,30 @@ jobs:
           path: |
             java/target/*.jar
           retention-days: 30
+
+  ci-success:
+    name: CI
+    if: always()
+    needs:
+      - test
+      - clippy
+      - fmt
+      - build-wasm
+      - test-go
+      - test-js
+      - test-dotnet
+      - test-python-native
+      - test-python-wasm
+      - test-java
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check all jobs passed
+        run: |
+          results="${{ join(needs.*.result, ' ') }}"
+          for result in $results; do
+            if [[ "$result" == "failure" || "$result" == "cancelled" ]]; then
+              echo "One or more CI jobs failed or were cancelled: $results"
+              exit 1
+            fi
+          done
+          echo "All CI jobs passed: $results"
