@@ -919,8 +919,8 @@ fn walk_node_for_vars(node: &CompiledNode, keys: &mut HashSet<String>) -> bool {
             true
         }
 
-        CompiledNode::CustomOperator { args, .. } => {
-            for arg in args.iter() {
+        CompiledNode::CustomOperator(data) => {
+            for arg in data.args.iter() {
                 if !walk_node_for_vars(arg, keys) {
                     return false;
                 }
@@ -928,8 +928,8 @@ fn walk_node_for_vars(node: &CompiledNode, keys: &mut HashSet<String>) -> bool {
             true
         }
 
-        CompiledNode::StructuredObject { fields } => {
-            for (_, field_node) in fields.iter() {
+        CompiledNode::StructuredObject(data) => {
+            for (_, field_node) in data.fields.iter() {
                 if !walk_node_for_vars(field_node, keys) {
                     return false;
                 }
@@ -960,8 +960,8 @@ fn walk_node_for_vars(node: &CompiledNode, keys: &mut HashSet<String>) -> bool {
         }
 
         // datalogic-rs 4.0.18: dedicated compiled exists node
-        CompiledNode::CompiledExists { segments, .. } => {
-            let path = segments_to_path(segments);
+        CompiledNode::CompiledExists(data) => {
+            let path = segments_to_path(&data.segments);
             if path.is_empty() {
                 return false;
             }
@@ -973,8 +973,8 @@ fn walk_node_for_vars(node: &CompiledNode, keys: &mut HashSet<String>) -> bool {
         }
 
         // datalogic-rs 4.0.18: split with pre-compiled regex — walk args only
-        CompiledNode::CompiledSplitRegex { args, .. } => {
-            for arg in args.iter() {
+        CompiledNode::CompiledSplitRegex(data) => {
+            for arg in data.args.iter() {
                 if !walk_node_for_vars(arg, keys) {
                     return false;
                 }
@@ -983,7 +983,7 @@ fn walk_node_for_vars(node: &CompiledNode, keys: &mut HashSet<String>) -> bool {
         }
 
         // datalogic-rs 4.0.18: throw node — no variable references
-        CompiledNode::CompiledThrow { .. } => true,
+        CompiledNode::CompiledThrow(_) => true,
 
         // Forward-compatibility: unknown future variants treated as needing full context.
         _ => false,

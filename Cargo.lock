@@ -224,9 +224,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c673075a2e0e5f4a1dde27ce9dee1ea4558c7ffe648f576438a20ca1d2acc4b0"
 dependencies = [
  "iana-time-zone",
- "js-sys",
  "num-traits",
- "wasm-bindgen",
  "windows-link",
 ]
 
@@ -479,8 +477,7 @@ dependencies = [
 [[package]]
 name = "datalogic-rs"
 version = "4.0.18"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "541144f3cf70f215f56cfee2d4529f5934b0610c2acb2f4db209d5af51afb0b6"
+source = "git+https://github.com/aepfli/datalogic-rs.git?branch=fix%2Fwasm-wasmbind-unconditional#a113f9f3c698e4b122eeb78baec4c5684bfa966e"
 dependencies = [
  "chrono",
  "regex",
@@ -1156,9 +1153,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.21.3"
+version = "1.21.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "42f5e15c9953c5e4ccceeb2e7382a716482c34515315f7b03532b8b4e8393d2d"
+checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
 
 [[package]]
 name = "once_cell_polyfill"
