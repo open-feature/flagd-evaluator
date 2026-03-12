@@ -17,7 +17,7 @@ categories = ["wasm", "web-programming"]
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-datalogic-rs = "4.0"
+datalogic-rs = "=4.0.19"
 serde = { version = "1.0", features = ["derive", "alloc"], default-features = false }
 serde_json = { version = "1.0", features = ["alloc"], default-features = false }
 boon = "0.6"
@@ -71,5 +71,4 @@ codegen-units = 16
 strip = true
 panic = "abort"
 
-[patch.crates-io]
-datalogic-rs = { git = "https://github.com/aepfli/datalogic-rs.git", branch = "fix/wasm-wasmbind-unconditional" }
+

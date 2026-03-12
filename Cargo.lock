@@ -476,8 +476,9 @@ dependencies = [
 
 [[package]]
 name = "datalogic-rs"
-version = "4.0.18"
-source = "git+https://github.com/aepfli/datalogic-rs.git?branch=fix%2Fwasm-wasmbind-unconditional#a113f9f3c698e4b122eeb78baec4c5684bfa966e"
+version = "4.0.19"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d9e6e592c363dd34191ccd56dd146ad7e55a883b842714ea9f9d1a15ab3c7d25"
 dependencies = [
  "chrono",
  "regex",
