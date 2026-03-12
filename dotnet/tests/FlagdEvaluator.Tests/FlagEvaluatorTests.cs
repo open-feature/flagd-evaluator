@@ -660,3 +660,102 @@ public class FlagEvaluatorTests : IDisposable
         result.Reason.Should().Be("TARGETING_MATCH");
     }
 }
+
+public class FlagSetMetadataTests : IDisposable
+{
+    private readonly FlagEvaluator _evaluator = new();
+
+    public void Dispose() => _evaluator.Dispose();
+
+    [Fact]
+    public void UpdateStateReturnsFlagSetMetadata_WhenPresent()
+    {
+        var config = """
+        {
+            "metadata": {
+                "flagSet": "my-flag-set",
+                "version": "1.0.0",
+                "environment": "production"
+            },
+            "flags": {
+                "someFlag": {
+                    "state": "ENABLED",
+                    "defaultVariant": "on",
+                    "variants": { "on": true, "off": false }
+                }
+            }
+        }
+        """;
+
+        var result = _evaluator.UpdateState(config);
+
+        result.Success.Should().BeTrue();
+        result.FlagSetMetadata.Should().NotBeNull();
+        result.FlagSetMetadata!.Should().ContainKey("flagSet");
+        result.FlagSetMetadata!.Should().ContainKey("version");
+        result.FlagSetMetadata!.Should().ContainKey("environment");
+    }
+
+    [Fact]
+    public void UpdateStateReturnsFlagSetMetadata_IsNullWhenAbsent()
+    {
+        var config = """
+        {
+            "flags": {
+                "someFlag": {
+                    "state": "ENABLED",
+                    "defaultVariant": "on",
+                    "variants": { "on": true }
+                }
+            }
+        }
+        """;
+
+        var result = _evaluator.UpdateState(config);
+
+        result.Success.Should().BeTrue();
+        result.FlagSetMetadata.Should().BeNull();
+    }
+
+    [Fact]
+    public void GetFlagSetMetadata_ReturnsCachedMetadata()
+    {
+        var config = """
+        {
+            "metadata": { "owner": "team-a" },
+            "flags": {
+                "f": {
+                    "state": "ENABLED",
+                    "defaultVariant": "on",
+                    "variants": { "on": true }
+                }
+            }
+        }
+        """;
+
+        _evaluator.UpdateState(config);
+        var meta = _evaluator.GetFlagSetMetadata();
+
+        meta.Should().NotBeNull();
+        meta!.Should().ContainKey("owner");
+    }
+
+    [Fact]
+    public void GetFlagSetMetadata_ReturnsNull_WhenNoMetadata()
+    {
+        var config = """
+        {
+            "flags": {
+                "f": {
+                    "state": "ENABLED",
+                    "defaultVariant": "on",
+                    "variants": { "on": true }
+                }
+            }
+        }
+        """;
+
+        _evaluator.UpdateState(config);
+        _evaluator.GetFlagSetMetadata().Should().BeNull();
+    }
+}

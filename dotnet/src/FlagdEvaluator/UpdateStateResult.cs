@@ -24,4 +24,7 @@ public sealed class UpdateStateResult
 
     [JsonPropertyName("flagIndices")]
     public Dictionary<string, uint>? FlagIndices { get; set; }
+
+    [JsonPropertyName("flagSetMetadata")]
+    public Dictionary<string, object>? FlagSetMetadata { get; set; }
 }

@@ -9,12 +9,14 @@ internal sealed class CacheSnapshot
     internal IReadOnlyDictionary<string, EvaluationResult> PreEvaluated { get; init; }
     internal IReadOnlyDictionary<string, HashSet<string>> RequiredContextKeys { get; init; }
     internal IReadOnlyDictionary<string, uint> FlagIndices { get; init; }
+    internal IReadOnlyDictionary<string, object>? FlagSetMetadata { get; init; }
 
     internal CacheSnapshot()
     {
         PreEvaluated = new Dictionary<string, EvaluationResult>();
         RequiredContextKeys = new Dictionary<string, HashSet<string>>();
         FlagIndices = new Dictionary<string, uint>();
+        FlagSetMetadata = null;
     }
 
     /// <summary>
@@ -45,6 +47,7 @@ internal sealed class CacheSnapshot
             PreEvaluated = preEvaluated,
             RequiredContextKeys = requiredKeys,
             FlagIndices = flagIndices,
+            FlagSetMetadata = result.FlagSetMetadata,
         };
     }
 }
