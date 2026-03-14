@@ -78,7 +78,8 @@ public class FlagEvaluator implements AutoCloseable, Evaluator {
 
     // Pre-allocated buffer sizes for WASM memory
     private static final int MAX_FLAG_KEY_SIZE = 256;
-    private static final int MAX_CONTEXT_SIZE = 1024 * 1024; // 1MB
+    private static final int MAX_CONTEXT_SIZE = 1024 * 1024;        // 1MB
+    private static final int MAX_CONFIG_SIZE = 100 * 1024 * 1024;   // 100MB
 
     static {
         // Register custom serializers/deserializers with the ObjectMapper
@@ -244,6 +245,9 @@ public class FlagEvaluator implements AutoCloseable, Evaluator {
         updateLock.lock();
         try {
             byte[] configBytes = config.getBytes(StandardCharsets.UTF_8);
+            if (configBytes.length > MAX_CONFIG_SIZE) {
+                throw new EvaluatorException("Config exceeds maximum size of " + MAX_CONFIG_SIZE + " bytes");
+            }
 
             // Drain all instances from pool
             List<WasmInstance> instances = new ArrayList<>(poolSize);

@@ -14,7 +14,8 @@ var wasmBytes []byte
 // Pre-allocated buffer sizes matching Java implementation
 const (
 	maxFlagKeySize = 256
-	maxContextSize = 1024 * 1024 // 1MB
+	maxContextSize = 1024 * 1024        // 1MB
+	maxConfigSize  = 100 * 1024 * 1024  // 100MB
 )
 
 // unpackPtrLen unpacks a u64 return value into pointer (upper 32) and length (lower 32).

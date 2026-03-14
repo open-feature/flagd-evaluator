@@ -10,7 +10,8 @@ namespace FlagdEvaluator;
 internal sealed class WasmInstance : IDisposable
 {
     internal const int MaxFlagKeySize = 256;
-    internal const int MaxContextSize = 1024 * 1024; // 1MB
+    internal const int MaxContextSize = 1024 * 1024;       // 1MB
+    internal const int MaxConfigSize  = 100 * 1024 * 1024; // 100MB
 
     private readonly Store _store;
     private readonly Instance _instance;
@@ -71,6 +72,8 @@ internal sealed class WasmInstance : IDisposable
     internal string CallUpdateState(string configJson)
     {
         var configBytes = Encoding.UTF8.GetBytes(configJson);
+        if (configBytes.Length > MaxConfigSize)
+            throw new EvaluatorException($"Config size {configBytes.Length} exceeds max {MaxConfigSize}");
         int configPtr = _alloc(configBytes.Length);
         WriteBytes(configPtr, configBytes);
 

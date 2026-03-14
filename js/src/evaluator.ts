@@ -10,7 +10,8 @@ import type {
 export type { EvaluationResult, UpdateStateResult };
 
 const MAX_FLAG_KEY_SIZE = 256;
-const MAX_CONTEXT_SIZE = 1024 * 1024; // 1MB
+const MAX_CONTEXT_SIZE = 1024 * 1024;        // 1MB
+const MAX_CONFIG_SIZE  = 100 * 1024 * 1024;  // 100MB
 
 export interface FlagEvaluatorOptions {
   permissiveValidation?: boolean;
@@ -60,9 +61,15 @@ export class FlagEvaluator {
   updateState(configJson: string): UpdateStateResult {
     const { wasm } = this;
     const configBytes = new TextEncoder().encode(configJson);
+    if (configBytes.byteLength > MAX_CONFIG_SIZE) {
+      throw new Error(`Config exceeds maximum size of ${MAX_CONFIG_SIZE} bytes`);
+    }
 
     // Allocate and write config
     const configPtr = wasm.alloc(configBytes.byteLength);
+    if (configPtr === 0) {
+      throw new Error('Failed to allocate WASM memory for config');
+    }
     new Uint8Array(wasm.memory.buffer).set(configBytes, configPtr);
 
     const packed = wasm.update_state(configPtr, configBytes.byteLength);

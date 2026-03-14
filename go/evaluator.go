@@ -220,6 +220,9 @@ func (e *FlagEvaluator) UpdateState(configJSON string) (*UpdateStateResult, erro
 	defer e.updateMu.Unlock()
 
 	configBytes := []byte(configJSON)
+	if len(configBytes) > maxConfigSize {
+		return nil, fmt.Errorf("config exceeds maximum size of %d bytes", maxConfigSize)
+	}
 
 	// Drain all instances from pool (blocks until all are returned)
 	instances := make([]*wasmInstance, e.poolSize)
