@@ -21,7 +21,7 @@
 //! - `sem_ver.rs`: Semantic version comparison
 
 mod common;
-mod fractional;
+pub mod fractional;
 mod sem_ver;
 
 pub use fractional::FractionalOperator;

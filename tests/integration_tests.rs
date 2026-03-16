@@ -1463,3 +1463,201 @@ fn test_update_state_flag_set_metadata_replaces_on_second_call() {
     assert_eq!(m2.get("env"), Some(&json!("production")));
     assert_eq!(m2.get("owner"), Some(&json!("team-a")));
 }
+
+// ============================================================================
+// Nested fractional argument evaluation (flagd#1676)
+// ============================================================================
+
+/// Helper: create a strict evaluator and load config, panicking on failure.
+fn strict_eval_with(config: &str) -> FlagEvaluator {
+    let mut eval = FlagEvaluator::new(ValidationMode::Strict);
+    let resp = eval.update_state(config).unwrap();
+    assert!(resp.success, "update_state failed: {:?}", resp.error);
+    eval
+}
+
+#[test]
+fn test_nested_if_in_bucket_variant_name() {
+    use serde_json::json;
+    // Variant name is a {"if": ...} expression — same email maps to the same bucket,
+    // but the resolved variant depends on the locale context field.
+    let config = json!({
+        "flags": {
+            "color-flag": {
+                "state": "ENABLED",
+                "variants": {"red": "#FF0000", "grey": "#808080", "blue": "#0000FF"},
+                "defaultVariant": "grey",
+                "targeting": {
+                    "fractional": [
+                        {"var": "email"},
+                        [{"if": [{"in": [{"var": "locale"}, ["us", "ca"]]}, "red", "grey"]}, 50],
+                        ["blue", 50]
+                    ]
+                }
+            }
+        }
+    });
+    let eval = strict_eval_with(&config.to_string());
+
+    // jon@company.com hashes into the first bucket (verified by gherkin v2 test)
+    let ctx_us = json!({"email": "jon@company.com", "locale": "us"});
+    let ctx_de = json!({"email": "jon@company.com", "locale": "de"});
+
+    let res_us = eval.evaluate_flag("color-flag", ctx_us);
+    let res_de = eval.evaluate_flag("color-flag", ctx_de);
+
+    // Same email → same bucket, but different locale → different resolved variant
+    assert_eq!(
+        res_us.variant.as_deref(),
+        Some("red"),
+        "US locale should resolve to 'red'"
+    );
+    assert_eq!(
+        res_de.variant.as_deref(),
+        Some("grey"),
+        "DE locale should resolve to 'grey'"
+    );
+}
+
+#[test]
+fn test_nested_fractional_inside_fractional() {
+    use serde_json::json;
+    // Nested fractional: outer splits on email 50/50, inner splits on tier 50/50.
+    let config = json!({
+        "flags": {
+            "experiment": {
+                "state": "ENABLED",
+                "variants": {"red": 1, "blue": 2, "green": 3, "yellow": 4},
+                "defaultVariant": "red",
+                "targeting": {
+                    "fractional": [
+                        {"var": "email"},
+                        [{"fractional": [{"var": "tier"}, ["red", 50], ["blue", 50]]}, 50],
+                        [{"fractional": [{"var": "tier"}, ["green", 50], ["yellow", 50]]}, 50]
+                    ]
+                }
+            }
+        }
+    });
+    let eval = strict_eval_with(&config.to_string());
+
+    // All combinations should resolve to one of the four valid variants
+    for email in ["a@x.com", "b@x.com", "c@x.com", "d@x.com", "e@x.com"] {
+        for tier in ["free", "pro", "enterprise"] {
+            let ctx = json!({"email": email, "tier": tier});
+            let res = eval.evaluate_flag("experiment", ctx);
+            assert!(
+                ["red", "blue", "green", "yellow"].contains(&res.variant.as_deref().unwrap_or("")),
+                "email={email} tier={tier} → unexpected variant {:?}",
+                res.variant
+            );
+        }
+    }
+}
+
+#[test]
+fn test_nested_var_in_bucket_variant_name() {
+    use serde_json::json;
+    // Variant name is a {"var": "preferred_color"} — each user carries their own preference.
+    let config = json!({
+        "flags": {
+            "theme-flag": {
+                "state": "ENABLED",
+                "variants": {"dark": "dark-theme", "light": "light-theme"},
+                "defaultVariant": "light",
+                "targeting": {
+                    "fractional": [
+                        {"var": "email"},
+                        [{"var": "preferred_theme"}, 50],
+                        ["light", 50]
+                    ]
+                }
+            }
+        }
+    });
+    let eval = strict_eval_with(&config.to_string());
+
+    // jon@company.com hashes into first bucket; preferred_theme drives the variant
+    let ctx_dark = json!({"email": "jon@company.com", "preferred_theme": "dark"});
+    let ctx_light = json!({"email": "jon@company.com", "preferred_theme": "light"});
+
+    let res_dark = eval.evaluate_flag("theme-flag", ctx_dark);
+    let res_light = eval.evaluate_flag("theme-flag", ctx_light);
+
+    assert_eq!(res_dark.variant.as_deref(), Some("dark"));
+    assert_eq!(res_light.variant.as_deref(), Some("light"));
+}
+
+// ============================================================================
+// Statistical distribution test (mirrors Java PR #1740 statistics() test)
+// ============================================================================
+
+#[test]
+fn test_fractional_distribution_uniformity() {
+    use flagd_evaluator::operators::fractional::fractional;
+    use serde_json::json;
+
+    // 16 equal-weight buckets totalling i32::MAX (matches Java test exactly)
+    let total_weight: u64 = i32::MAX as u64;
+    let buckets_count: u64 = 16;
+    let weight = total_weight / buckets_count;
+    let remainder = total_weight - weight * (buckets_count - 1);
+
+    let mut bucket_defs: Vec<serde_json::Value> = Vec::new();
+    for i in 0..buckets_count - 1 {
+        bucket_defs.push(json!(format!("{}", i)));
+        bucket_defs.push(serde_json::Value::Number(weight.into()));
+    }
+    bucket_defs.push(json!(format!("{}", buckets_count - 1)));
+    bucket_defs.push(serde_json::Value::Number(remainder.into()));
+
+    let mut hits = vec![0u64; buckets_count as usize];
+
+    // 100k sequential keys — dense sample, fast, and tight enough for 10% tolerance.
+    for i in 0u64..100_000 {
+        let key = format!("{}", i);
+        let bucket_str = fractional(&key, &bucket_defs).unwrap();
+        let bucket_idx: usize = bucket_str.parse().unwrap();
+        hits[bucket_idx] += 1;
+    }
+
+    let min = *hits.iter().min().unwrap();
+    let max = *hits.iter().max().unwrap();
+    let delta = max - min;
+
+    let sample_size: u64 = 100_000;
+    let expected_per_bucket = sample_size / buckets_count;
+    let tolerance = expected_per_bucket / 10; // 10% tolerance
+
+    assert!(
+        delta < tolerance,
+        "Distribution imbalance too large: max={max} min={min} delta={delta} (tolerance={tolerance}). hits={hits:?}"
+    );
+}
+
+#[test]
+fn test_fractional_boundary_hashes_do_not_panic() {
+    use flagd_evaluator::operators::fractional::fractional;
+    use serde_json::json;
+
+    let buckets = vec![
+        json!("a"),
+        json!(4),
+        json!("b"),
+        json!(4),
+        json!("c"),
+        json!(4),
+        json!("d"),
+        json!(4),
+    ];
+
+    // Keys chosen to produce boundary-adjacent hash values
+    for key in ["", "0", "a", "\0", "ffffffff"] {
+        let result = fractional(key, &buckets);
+        assert!(result.is_ok(), "key={key:?} should not error: {:?}", result);
+        assert!(
+            ["a", "b", "c", "d"].contains(&result.unwrap().as_str()),
+            "key={key:?} must map to a valid bucket"
+        );
+    }
+}

@@ -461,8 +461,15 @@
       "maxItems": 2,
       "items": [
         {
-          "description": "If this bucket is randomly selected, this string is used to as a key to retrieve the associated value from the \"variants\" object.",
-          "type": "string"
+          "description": "If this bucket is randomly selected, this value (or the string result of evaluating this JSON Logic expression) is used as a key to retrieve the associated value from the \"variants\" object.",
+          "oneOf": [
+            {
+              "type": "string"
+            },
+            {
+              "$ref": "#/definitions/anyRule"
+            }
+          ]
         },
         {
           "description": "Weighted distribution for this variant key.",
