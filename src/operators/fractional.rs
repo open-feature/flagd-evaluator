@@ -386,7 +386,10 @@ mod tests {
         } else {
             json!("high")
         };
-        assert_eq!(result, expected, "bucket assignment must match the spec formula");
+        assert_eq!(
+            result, expected,
+            "bucket assignment must match the spec formula"
+        );
     }
 
     #[test]
@@ -394,7 +397,11 @@ mod tests {
         // Boolean values are valid bucket names — used when fractional is a condition
         let buckets = vec![json!(false), json!(0u64), json!(true), json!(100u64)];
         let result = fractional("any-key", &buckets).unwrap();
-        assert_eq!(result, json!(true), "100% weight on true must always select true");
+        assert_eq!(
+            result,
+            json!(true),
+            "100% weight on true must always select true"
+        );
     }
 
     #[test]
