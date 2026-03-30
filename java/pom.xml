@@ -26,7 +26,7 @@
         <maven.compiler.target>11</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
-        <chicory.version>1.6.1</chicory.version>
+        <chicory.version>1.7.5</chicory.version>
         <jackson.version>2.18.2</jackson.version>
         <junit.version>5.14.3</junit.version>
         <assertj.version>3.27.7</assertj.version>
