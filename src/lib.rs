@@ -541,7 +541,10 @@ unsafe fn parse_context_from_memory(
 
     // SAFETY: The caller guarantees valid memory regions
     let context_str = unsafe { string_from_memory(context_ptr, context_len) }.map_err(|e| {
-        EvaluationResult::error(ErrorCode::ParseError, format!("Failed to read context: {}", e))
+        EvaluationResult::error(
+            ErrorCode::ParseError,
+            format!("Failed to read context: {}", e),
+        )
     })?;
 
     serde_json::from_str(&context_str).map_err(|e| {
