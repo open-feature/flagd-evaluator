@@ -521,6 +521,7 @@ pub extern "C" fn evaluate_by_index(
 ///
 /// # Safety
 /// `context_ptr` must point to valid memory of at least `context_len` bytes, or be null.
+#[allow(clippy::result_large_err)]
 unsafe fn parse_context_from_memory(
     context_ptr: *const u8,
     context_len: u32,
