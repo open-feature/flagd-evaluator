@@ -1616,8 +1616,8 @@ fn test_fractional_distribution_uniformity() {
     // 100k sequential keys — dense sample, fast, and tight enough for 10% tolerance.
     for i in 0u64..100_000 {
         let key = format!("{}", i);
-        let bucket_str = fractional(&key, &bucket_defs).unwrap();
-        let bucket_idx: usize = bucket_str.parse().unwrap();
+        let bucket_val = fractional(&key, &bucket_defs).unwrap();
+        let bucket_idx: usize = bucket_val.as_str().unwrap().parse().unwrap();
         hits[bucket_idx] += 1;
     }
 
@@ -1656,7 +1656,7 @@ fn test_fractional_boundary_hashes_do_not_panic() {
         let result = fractional(key, &buckets);
         assert!(result.is_ok(), "key={key:?} should not error: {:?}", result);
         assert!(
-            ["a", "b", "c", "d"].contains(&result.unwrap().as_str()),
+            ["a", "b", "c", "d"].contains(&result.unwrap().as_str().unwrap()),
             "key={key:?} must map to a valid bucket"
         );
     }
