@@ -37,7 +37,8 @@ impl Operator for FractionalOperator {
             (_, Value::String(s)) => (s.clone(), 1),
             (Value::Array(_), _) => {
                 // First arg is explicitly an array — no seed provided, use flagKey+targetingKey
-                let data = context.root().data().clone();
+                let root = context.root();
+                let data = root.data();
                 let targeting_key = data
                     .get("targetingKey")
                     .and_then(|v| v.as_str())
@@ -145,25 +146,22 @@ pub fn fractional(bucket_key: &str, buckets: &[Value]) -> Result<Value, String> 
     let mut bucket_defs: Vec<(Value, u64)> = Vec::new();
     let mut total_weight: u64 = 0;
 
-    let mut i = 0;
-    while i < buckets.len() {
+    for (i, chunk) in buckets.chunks(2).enumerate() {
         // Accept any scalar JSON value as a bucket name.
-        let name_value = buckets[i].clone();
+        let name_value = chunk[0].clone();
         if matches!(name_value, Value::Object(_) | Value::Array(_)) {
             return Err(format!(
                 "Bucket name at index {} must be a scalar value (string, boolean, or number), got a complex type",
-                i
+                i * 2
             ));
         }
 
-        i += 1;
-
-        // Get bucket weight — negative weights are clamped to zero.
-        if i >= buckets.len() {
-            return Err(format!("Missing weight for bucket at index {}", i - 1));
+        if chunk.len() < 2 {
+            return Err(format!("Missing weight for bucket at index {}", i * 2));
         }
 
-        let weight: u64 = match &buckets[i] {
+        // Get bucket weight — negative weights are clamped to zero.
+        let weight: u64 = match &chunk[1] {
             Value::Number(n) => {
                 if let Some(u) = n.as_u64() {
                     u
@@ -178,7 +176,7 @@ pub fn fractional(bucket_key: &str, buckets: &[Value]) -> Result<Value, String> 
             _ => {
                 return Err(format!(
                     "Weight for bucket at index {} must be a number",
-                    i
+                    i * 2 + 1
                 ))
             }
         };
@@ -188,7 +186,6 @@ pub fn fractional(bucket_key: &str, buckets: &[Value]) -> Result<Value, String> 
             .ok_or_else(|| "Total weight overflow".to_string())?;
 
         bucket_defs.push((name_value, weight));
-        i += 1;
     }
 
     if bucket_defs.is_empty() {
