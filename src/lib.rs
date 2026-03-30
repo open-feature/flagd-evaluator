@@ -514,6 +514,44 @@ pub extern "C" fn evaluate_by_index(
     string_to_memory(&result.to_json_string())
 }
 
+/// Parses an evaluation context from a WASM memory pointer.
+///
+/// Returns `Ok(Value::Null)` when the pointer is null or the length is zero (no context
+/// provided). Returns `Err(EvaluationResult)` for any size, UTF-8, or JSON error.
+///
+/// # Safety
+/// `context_ptr` must point to valid memory of at least `context_len` bytes, or be null.
+unsafe fn parse_context_from_memory(
+    context_ptr: *const u8,
+    context_len: u32,
+) -> Result<Value, EvaluationResult> {
+    if context_ptr.is_null() || context_len == 0 {
+        return Ok(Value::Null);
+    }
+
+    if context_len as usize > MAX_CONTEXT_BYTES {
+        return Err(EvaluationResult::error(
+            ErrorCode::ParseError,
+            format!(
+                "Context size ({} bytes) exceeds the maximum allowed size of {} bytes (1 MB)",
+                context_len, MAX_CONTEXT_BYTES
+            ),
+        ));
+    }
+
+    // SAFETY: The caller guarantees valid memory regions
+    let context_str = unsafe { string_from_memory(context_ptr, context_len) }.map_err(|e| {
+        EvaluationResult::error(ErrorCode::ParseError, format!("Failed to read context: {}", e))
+    })?;
+
+    serde_json::from_str(&context_str).map_err(|e| {
+        EvaluationResult::error(
+            ErrorCode::ParseError,
+            format!("Failed to parse context JSON: {}", e),
+        )
+    })
+}
+
 /// Internal implementation of evaluate_by_index.
 fn evaluate_by_index_internal(
     flag_index: u32,
@@ -531,39 +569,10 @@ fn evaluate_by_index_internal(
                 );
             }
 
-            // Parse context (pre-enriched by host)
-            let context: Value = if context_ptr.is_null() || context_len == 0 {
-                Value::Null
-            } else {
-                if context_len as usize > MAX_CONTEXT_BYTES {
-                    return EvaluationResult::error(
-                        ErrorCode::ParseError,
-                        format!(
-                            "Context size ({} bytes) exceeds the maximum allowed size of {} bytes (1 MB)",
-                            context_len, MAX_CONTEXT_BYTES
-                        ),
-                    );
-                }
-                // SAFETY: The caller guarantees valid memory regions
-                let context_str = match unsafe { string_from_memory(context_ptr, context_len) } {
-                    Ok(s) => s,
-                    Err(e) => {
-                        return EvaluationResult::error(
-                            ErrorCode::ParseError,
-                            format!("Failed to read context: {}", e),
-                        )
-                    }
-                };
-
-                match serde_json::from_str(&context_str) {
-                    Ok(v) => v,
-                    Err(e) => {
-                        return EvaluationResult::error(
-                            ErrorCode::ParseError,
-                            format!("Failed to parse context JSON: {}", e),
-                        )
-                    }
-                }
+            // SAFETY: The caller guarantees valid memory regions
+            let context = match unsafe { parse_context_from_memory(context_ptr, context_len) } {
+                Ok(v) => v,
+                Err(e) => return e,
             };
 
             eval.evaluate_flag_by_index(flag_index, context)
@@ -618,40 +627,14 @@ fn evaluate_internal(
 
             let flag = state.flags.get(&flag_key);
 
-            // Parse protobuf context
-            let context: Value = if context_ptr.is_null()
-                || context_len == 0
-                || flag.is_some_and(|f| f.targeting.is_none())
-            {
+            // Skip parsing when the flag has no targeting rules — context is unused.
+            // SAFETY: The caller guarantees valid memory regions
+            let context = if flag.is_some_and(|f| f.targeting.is_none()) {
                 Value::Null
             } else {
-                if context_len as usize > MAX_CONTEXT_BYTES {
-                    return EvaluationResult::error(
-                        ErrorCode::ParseError,
-                        format!(
-                            "Context size ({} bytes) exceeds the maximum allowed size of {} bytes (1 MB)",
-                            context_len, MAX_CONTEXT_BYTES
-                        ),
-                    );
-                }
-                let context_str = match unsafe { string_from_memory(context_ptr, context_len) } {
-                    Ok(s) => s,
-                    Err(e) => {
-                        return EvaluationResult::error(
-                            ErrorCode::ParseError,
-                            format!("Failed to read context: {}", e),
-                        )
-                    }
-                };
-
-                match serde_json::from_str(&context_str) {
+                match unsafe { parse_context_from_memory(context_ptr, context_len) } {
                     Ok(v) => v,
-                    Err(e) => {
-                        return EvaluationResult::error(
-                            ErrorCode::ParseError,
-                            format!("Failed to parse context JSON: {}", e),
-                        )
-                    }
+                    Err(e) => return e,
                 }
             };
 
