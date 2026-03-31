@@ -45,7 +45,7 @@ jobs:
           BRANCH=$(echo "$PR_JSON" | jq -r '.headBranchName')
           echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: ${{ steps.pr-info.outputs.branch }}
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -115,7 +115,7 @@ jobs:
     if: always() && (needs.release-please.outputs.release_created == 'true' || startsWith(github.ref, 'refs/tags/'))
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Set up JDK 11
         uses: actions/setup-java@v4
@@ -158,7 +158,7 @@ jobs:
     if: always() && (needs.release-please.outputs.release_created == 'true' || startsWith(github.ref, 'refs/tags/'))
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
