@@ -18,7 +18,7 @@ jobs:
       matrix:
         target: [x86_64, aarch64]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
 
@@ -47,7 +47,7 @@ jobs:
       matrix:
         target: [x64]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
 
@@ -76,7 +76,7 @@ jobs:
       matrix:
         target: [x86_64, aarch64]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
 
@@ -101,7 +101,7 @@ jobs:
   sdist:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
 
