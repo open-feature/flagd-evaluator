@@ -27,7 +27,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
         <chicory.version>1.6.1</chicory.version>
-        <jackson.version>2.18.2</jackson.version>
+        <jackson.version>2.21.3</jackson.version>
         <junit.version>5.14.3</junit.version>
         <assertj.version>3.27.7</assertj.version>
         <jmh.version>1.37</jmh.version>
