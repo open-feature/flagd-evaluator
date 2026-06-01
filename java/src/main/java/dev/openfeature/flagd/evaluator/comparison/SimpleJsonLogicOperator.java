@@ -7,10 +7,17 @@ import dev.openfeature.sdk.EvaluationContext;
 import io.github.jamsesso.jsonlogic.JsonLogic;
 
 /**
- * JSON Logic operator wrapper using the actual json-logic-java library.
+ * JSON Logic operator wrapper using the json-logic-java library.
  *
- * <p>This uses the same JsonLogic library that the old InProcessResolver used,
- * allowing us to do a true performance comparison between:
+ * <p>Uses the maintained {@code io.github.gzsombor} fork of json-logic-java that
+ * java-sdk-contrib migrated to in PR #1786. It keeps the original
+ * {@code io.github.jamsesso.jsonlogic} package, so it is a drop-in replacement
+ * for the previous {@code io.github.jamsesso} dependency. {@code new JsonLogic()}
+ * enables targeting-rule pre-compilation by default; the parsed/compiled rule is
+ * cached per rule string, so repeated {@link #apply} calls hit the compiled path.
+ *
+ * <p>This mirrors the JsonLogic library the flagd provider's InProcessResolver
+ * uses, allowing a true performance comparison between:
  * - Old: Java-based JsonLogic evaluation
  * - New: WASM-based evaluation
  */
@@ -26,6 +33,7 @@ class SimpleJsonLogicOperator {
     }
 
     SimpleJsonLogicOperator() {
+        // Compilation enabled by default (JsonLogic() delegates to JsonLogic(true)).
         this.jsonLogic = new JsonLogic();
     }
 

@@ -418,6 +418,13 @@ fn update_state_internal(config_ptr: *const u8, config_len: u32) -> String {
 /// - The caller will free the returned memory using `dealloc`
 /// - The input buffers (flag_key and context) are freed by this function - caller should NOT dealloc them
 /// - For empty context, pass context_ptr=0 and context_len=0 to skip allocation entirely
+///
+/// # Deprecated
+/// Prefer [`evaluate_by_index`] with a host-enriched context. The indexed export avoids
+/// flag-key string marshaling and WASM-side context enrichment and is the path all
+/// maintained wrappers should use. This export is retained for backward compatibility and
+/// will be removed in a future major version.
+#[deprecated(note = "use evaluate_by_index with a host-enriched context")]
 #[no_mangle]
 pub extern "C" fn evaluate(
     flag_key_ptr: *mut u8,
@@ -466,6 +473,11 @@ pub extern "C" fn evaluate(
 /// - The caller manages the input buffer lifecycle (they are NOT freed by this function)
 /// - The caller will free the returned result memory using `dealloc`
 /// - For empty context, pass context_ptr=0 and context_len=0
+///
+/// # Deprecated
+/// Prefer [`evaluate_by_index`] with a host-enriched context. Retained for backward
+/// compatibility with existing language wrappers; will be removed in a future major version.
+#[deprecated(note = "use evaluate_by_index with a host-enriched context")]
 #[no_mangle]
 pub extern "C" fn evaluate_reusable(
     flag_key_ptr: *const u8,
