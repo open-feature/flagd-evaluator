@@ -708,8 +708,16 @@ public class FlagEvaluator implements AutoCloseable, Evaluator {
             throw new TypeMismatch("expected String but got " + raw.getClass().getSimpleName());
         }
         if (type == Integer.class) {
+            if (raw instanceof Integer) {
+                return (T) raw;
+            }
+            // Accept other numeric types only when they have no fractional part and fit
+            // in an int; a genuinely fractional value (e.g. 2.5) is a type mismatch.
             if (raw instanceof Number) {
-                return (T) Integer.valueOf(((Number) raw).intValue());
+                double d = ((Number) raw).doubleValue();
+                if (d == (int) d) {
+                    return (T) Integer.valueOf((int) d);
+                }
             }
             throw new TypeMismatch("expected Integer but got " + raw.getClass().getSimpleName());
         }
