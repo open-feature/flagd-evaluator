@@ -15,6 +15,7 @@ import dev.openfeature.contrib.tools.flagd.api.Evaluator;
 import dev.openfeature.contrib.tools.flagd.api.FlagStoreException;
 import dev.openfeature.sdk.ErrorCode;
 import dev.openfeature.sdk.EvaluationContext;
+import dev.openfeature.sdk.ImmutableContext;
 import dev.openfeature.sdk.ImmutableMetadata;
 import dev.openfeature.sdk.ProviderEvaluation;
 import dev.openfeature.sdk.Value;
@@ -71,6 +72,7 @@ public class FlagEvaluator implements AutoCloseable, Evaluator {
     private static final JsonFactory JSON_FACTORY = new JsonFactory();
     private static final Map<Class, JavaType> JAVA_TYPE_MAP = new HashMap<>();
     private static final EvaluationContextSerializer CONTEXT_SERIALIZER = new EvaluationContextSerializer();
+    private static final EvaluationContext EMPTY_CONTEXT = new ImmutableContext();
 
     // ThreadLocal buffers for reducing allocations
     private static final ThreadLocal<ByteArrayOutputStream> JSON_BUFFER =
@@ -407,8 +409,27 @@ public class FlagEvaluator implements AutoCloseable, Evaluator {
     }
 
     /**
-     * Internal evaluation using flag key string and evaluate_reusable WASM export.
+     * Serializes the full evaluation context to JSON without {@code $flagd}/{@code targetingKey}
+     * enrichment. Used only by the deprecated key-string fallback path, where the WASM module
+     * performs enrichment itself.
      */
+    private String serializeFullContext(EvaluationContext context) throws java.io.IOException {
+        ByteArrayOutputStream buffer = JSON_BUFFER.get();
+        buffer.reset();
+        try (JsonGenerator generator = JSON_FACTORY.createGenerator(buffer)) {
+            OBJECT_MAPPER.writeValue(generator, context);
+        }
+        return buffer.toString(StandardCharsets.UTF_8.name());
+    }
+
+    /**
+     * Internal evaluation using the flag key string and the {@code evaluate_reusable} WASM export.
+     *
+     * @deprecated The index path ({@link #evaluateByIndex}) is the primary route. This key-string
+     *     path relies on WASM-side context enrichment and is retained only as a fallback for WASM
+     *     modules that do not export {@code evaluate_by_index}.
+     */
+    @Deprecated
     private <T> EvaluationResult<T> evaluateFlagInternal(Class<T> type, String flagKey, String contextJson, WasmInstance inst) throws EvaluatorException {
         byte[] flagBytes = flagKey.getBytes(StandardCharsets.UTF_8);
         if (flagBytes.length > MAX_FLAG_KEY_SIZE) {
@@ -445,6 +466,11 @@ public class FlagEvaluator implements AutoCloseable, Evaluator {
 
     /**
      * Evaluates a flag using the numeric index path (evaluate_by_index WASM export).
+     *
+     * <p>The context must already be host-enriched ({@code $flagd.*} and {@code targetingKey},
+     * added by {@link EvaluationContextSerializer#serializeFiltered}). The small primitive result
+     * is decoded directly via {@link MinimalResultDecoder}, falling back to Jackson for object/
+     * numeric/{@code Value} results, error/metadata fields, or any shape the fast decoder declines.
      */
     private <T> EvaluationResult<T> evaluateByIndex(Class<T> type, int flagIndex, String contextJson, WasmInstance inst) throws EvaluatorException {
         long contextPtr = 0;
@@ -464,9 +490,17 @@ public class FlagEvaluator implements AutoCloseable, Evaluator {
             int resultPtr = (int) (packedResult >>> 32);
             int resultLen = (int) (packedResult & 0xFFFFFFFFL);
 
-            String resultJson = inst.memory.readString(resultPtr, resultLen);
+            // Copy the result out of WASM memory, then free it.
+            byte[] resultBytes = inst.memory.readBytes(resultPtr, resultLen);
             inst.deallocFunction.apply(resultPtr, resultLen);
 
+            // Fast path: decode the common primitive result without Jackson.
+            EvaluationResult<T> fast = MinimalResultDecoder.decode(type, resultBytes, resultLen);
+            if (fast != null) {
+                return fast;
+            }
+            // Fallback: full Jackson parse over the same bytes.
+            String resultJson = new String(resultBytes, StandardCharsets.UTF_8);
             return OBJECT_MAPPER.readValue(resultJson, JAVA_TYPE_MAP.get(type));
         } catch (Exception e) {
             throw new EvaluatorException("Failed to evaluate flag by index: " + flagIndex, e);
@@ -495,25 +529,6 @@ public class FlagEvaluator implements AutoCloseable, Evaluator {
                 return (EvaluationResult<T>) (EvaluationResult<?>) cached;
             }
 
-            // Fast path: empty context
-            if (context == null || context.isEmpty()) {
-                return evaluateFlag(type, flagKey, (String) null);
-            }
-
-            // Determine context serialization strategy
-            Set<String> requiredKeys = snap.requiredContextKeys.get(flagKey);
-            String contextJson;
-            if (requiredKeys != null) {
-                contextJson = EvaluationContextSerializer.serializeFiltered(context, requiredKeys, flagKey);
-            } else {
-                ByteArrayOutputStream buffer = JSON_BUFFER.get();
-                buffer.reset();
-                try (JsonGenerator generator = JSON_FACTORY.createGenerator(buffer)) {
-                    OBJECT_MAPPER.writeValue(generator, context);
-                }
-                contextJson = buffer.toString(StandardCharsets.UTF_8.name());
-            }
-
             // Acquire instance from pool
             WasmInstance inst;
             try {
@@ -523,23 +538,35 @@ public class FlagEvaluator implements AutoCloseable, Evaluator {
                 throw new EvaluatorException("Interrupted while acquiring WASM instance", e);
             }
             try {
-                // Generation guard
+                Set<String> requiredKeys = snap.requiredContextKeys.get(flagKey);
+
+                // Generation guard: if the instance is on a different config generation than the
+                // snapshot we read, re-read the snapshot and re-check the pre-evaluated cache.
                 if (snap.generation != inst.generation) {
                     snap = this.cache;
                     cached = snap.preEvaluated.get(flagKey);
                     if (cached != null) {
                         return (EvaluationResult<T>) (EvaluationResult<?>) cached;
                     }
-                    // Re-resolve required keys from new cache
                     requiredKeys = snap.requiredContextKeys.get(flagKey);
                 }
 
-                // Check if we can use index-based evaluation
                 Integer flagIndex = snap.flagIndices.get(flagKey);
-                if (flagIndex != null && inst.evaluateByIndexFunction != null && requiredKeys != null) {
+                EvaluationContext ctx = (context != null) ? context : EMPTY_CONTEXT;
+
+                // Primary path: index-based evaluation. The context is enriched entirely on the
+                // host ($flagd.flagKey, $flagd.timestamp, targetingKey via serializeFiltered) and
+                // filtered to the keys the targeting rule references, so no WASM-side enrichment
+                // or flag-key string marshaling is needed.
+                if (flagIndex != null && requiredKeys != null && inst.evaluateByIndexFunction != null) {
+                    String contextJson = EvaluationContextSerializer.serializeFiltered(ctx, requiredKeys, flagKey);
                     return evaluateByIndex(type, flagIndex, contextJson, inst);
                 }
 
+                // Deprecated fallback: key-string path. Used only when the WASM module lacks the
+                // evaluate_by_index export or the flag has no recorded required keys. Context is
+                // enriched WASM-side here, so the host serializes it unenriched.
+                String contextJson = serializeFullContext(ctx);
                 return evaluateFlagInternal(type, flagKey, contextJson, inst);
             } finally {
                 pool.add(inst);

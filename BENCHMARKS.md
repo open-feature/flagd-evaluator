@@ -216,6 +216,16 @@ When reporting benchmark results, always include:
 
 Results should be committed to language-specific README files, not to this document.
 
+### Java boundary optimization (summary)
+
+Recent Java work consolidated evaluation onto the indexed WASM export (`evaluate_by_index`,
+host-enriched context) and replaced Jackson result parsing with an allocation-light decoder
+(`MinimalResultDecoder`, falling back to Jackson for non-primitive results). On the focused
+JMH comparison suite this lowered targeting-evaluation latency by ~17–21% and roughly halved
+per-evaluation JVM allocation (~2.3 KB → ~1.2 KB/op, flat across context sizes). The
+comparison baseline also moved to the maintained `io.github.gzsombor` json-logic fork. Full
+methodology and numbers live in the per-language README and the benchmark run artifacts.
+
 ## Performance Expectations
 
 The following targets define acceptable performance at each scale. Implementations that regress beyond the thresholds below should be investigated before merging.
